@@ -59,7 +59,7 @@ export default function HomePage() {
             ))}
           </ul>
           <div className="ml-8 flex space-x-4">
-            <Link href="/login">
+            <Link href="/Login">
               <button className="px-4 py-2 rounded-md border border-gray-300 hover:shadow-md hover:bg-gray-100 transition">
                 Login
               </button>
