@@ -1,91 +1,261 @@
 import { NextResponse } from "next/server";
 import clientPromise from "../../../../lib/mongodb";
+import { v2 as cloudinary } from 'cloudinary';
+import { verifyApiToken, requireRole, createAuthError, checkRateLimit } from '../../../../lib/auth';
 
-// POST - Create new property
+// Validate environment variables
+if (
+  !process.env.CLOUDINARY_CLOUD_NAME ||
+  !process.env.CLOUDINARY_API_KEY ||
+  !process.env.CLOUDINARY_API_SECRET
+) {
+  throw new Error('Missing required Cloudinary environment variables');
+}
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// POST - Create new property (AUTHENTICATED USERS ONLY)
 export async function POST(request) {
+  let user = null;
+
   try {
+    checkRateLimit(request);
+    user = await verifyApiToken(request);
+  } catch (authError) {
+    console.error('❌ Authentication error in POST /api/properties:', authError.message);
+    return createAuthError(authError.message, 401);
+  }
+
+  try {
+    const formData = await request.formData();
+    
+    // Extract form fields
+    const title = formData.get('title');
+    const location = formData.get('location');
+    const price = formData.get('price');
+    const beds = formData.get('beds');
+    const baths = formData.get('baths');
+    const description = formData.get('description');
+    const category = formData.get('category');
+    const type = formData.get('type');
+    const size = formData.get('size');
+    const file = formData.get('image');
+
+    console.log('🔍 POST /api/properties - User:', user.email);
+    
+    // Validate required fields
+    if (!title || typeof title !== 'string' || title.trim().length < 1) {
+      return NextResponse.json({
+        success: false,
+        message: "Valid title is required"
+      }, { status: 400 });
+    }
+
+    if (!location || typeof location !== 'string' || location.trim().length < 1) {
+      return NextResponse.json({
+        success: false,
+        message: "Valid location is required"
+      }, { status: 400 });
+    }
+
+    if (!price) {
+      return NextResponse.json({
+        success: false,
+        message: "Price is required"
+      }, { status: 400 });
+    }
+
+    if (!description || typeof description !== 'string' || description.trim().length < 1) {
+      return NextResponse.json({
+        success: false,
+        message: "Valid description is required"
+      }, { status: 400 });
+    }
+
+    let imageUrl = '';
+    let imagePublicId = '';
+
+    // Upload image to Cloudinary if provided
+    if (file && file.size > 0) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        return NextResponse.json({
+          success: false,
+          message: 'Only image files are allowed'
+        }, { status: 400 });
+      }
+
+      // Validate file size (10MB limit for properties)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        return NextResponse.json({
+          success: false,
+          message: 'File size must be less than 10MB'
+        }, { status: 400 });
+      }
+
+      try {
+        // Convert file to buffer for Cloudinary upload
+        const bytes = await file.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+
+        // Upload to Cloudinary
+        const uploadResponse = await new Promise((resolve, reject) => {
+          cloudinary.uploader
+            .upload_stream(
+              {
+                resource_type: 'image',
+                folder: 'BASHACHAI_properties',
+                public_id: `property_${user.userId}_${Date.now()}`,
+                transformation: [
+                  { width: 1200, height: 800, crop: 'fill' },
+                  { quality: 'auto' },
+                  { format: 'auto' },
+                ],
+              },
+              (error, result) => {
+                if (error) {
+                  console.error('Cloudinary upload error:', error);
+                  reject(new Error(`Cloudinary upload failed: ${error.message}`));
+                } else {
+                  resolve(result);
+                }
+              }
+            )
+            .end(buffer);
+        });
+
+        imageUrl = uploadResponse.secure_url;
+        imagePublicId = uploadResponse.public_id;
+
+        console.log('✅ Image uploaded to Cloudinary:', imagePublicId);
+      } catch (uploadError) {
+        console.error('❌ Error uploading to Cloudinary:', uploadError);
+        return NextResponse.json({
+          success: false,
+          message: 'Failed to upload image',
+          error: uploadError.message
+        }, { status: 500 });
+      }
+    }
+
     const client = await clientPromise;
     const db = client.db("BASHACHAI");
     const collection = db.collection("properties");
     
-    const data = await request.json();
-    
-    // Validate required fields
-    if (!data.title || !data.location || !data.price) {
-      return NextResponse.json({
-        success: false,
-        message: "Title, location, and price are required fields"
-      }, { status: 400 });
-    }
-    
     // Prepare property document
     const propertyDoc = {
-      title: data.title.trim(),
-      location: data.location.trim(),
-      price: data.price,
-      beds: parseInt(data.beds) || 0,
-      baths: parseInt(data.baths) || 0,
-      description: data.description?.trim() || "",
-      category: data.category || "Flat to Rent",
-      type: data.type || "rent", // 'rent' or 'sale'
-      image: data.image?.trim() || "",
-      size: data.size || "",
+      title: title.trim(),
+      location: location.trim(),
+      price: price,
+      beds: parseInt(beds) || 0,
+      baths: parseInt(baths) || 0,
+      description: description.trim(),
+      category: category || "Flat to Rent",
+      type: type || "rent",
+      image: imageUrl,
+      imagePublicId: imagePublicId,
+      size: size || "",
+      createdBy: user.userId,
+      createdByEmail: user.email,
+      createdByName: user.name || user.email,
       createdAt: new Date(),
       updatedAt: new Date()
     };
     
     const result = await collection.insertOne(propertyDoc);
     
+    // Create audit log (non-blocking)
+    setImmediate(async () => {
+      try {
+        await db.collection('audit_logs').insertOne({
+          action: 'PROPERTY_CREATED',
+          propertyId: result.insertedId.toString(),
+          userId: user.userId,
+          userEmail: user.email,
+          propertyTitle: propertyDoc.title,
+          propertyLocation: propertyDoc.location,
+          hasImage: !!imageUrl,
+          timestamp: new Date(),
+          ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0] || 
+                    request.headers.get('x-real-ip') || 
+                    'unknown'
+        });
+      } catch (auditError) {
+        console.error('Audit log error:', auditError);
+      }
+    });
+    
     return NextResponse.json({
       success: true,
       message: "Property saved successfully",
       data: { 
         _id: result.insertedId.toString(), 
-        ...propertyDoc 
+        ...propertyDoc,
+        createdAt: propertyDoc.createdAt.toISOString(),
+        updatedAt: propertyDoc.updatedAt.toISOString()
       }
     }, { status: 201 });
     
   } catch (error) {
-    console.error("Error saving property:", error);
-    
-    // Handle specific MongoDB errors
-    if (error.name === 'MongoServerError') {
-      return NextResponse.json({
-        success: false,
-        message: "Database error occurred",
-        error: error.message
-      }, { status: 503 });
-    }
+    console.error("❌ Error saving property:", error);
+    console.error("❌ Stack trace:", error.stack);
     
     return NextResponse.json({
       success: false,
       message: "Error saving property",
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     }, { status: 500 });
   }
 }
 
-// GET - Fetch all properties
+// GET - Fetch all properties (PUBLIC)
 export async function GET(request) {
   try {
+    checkRateLimit(request);
+
     const client = await clientPromise;
     const db = client.db("BASHACHAI");
     const collection = db.collection("properties");
     
     // Get query parameters for filtering
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type'); // 'rent' or 'sale'
+    const type = searchParams.get('type');
     const category = searchParams.get('category');
     const location = searchParams.get('location');
+    const createdBy = searchParams.get('createdBy'); // Filter by user
     const limit = parseInt(searchParams.get('limit')) || 100;
     const page = parseInt(searchParams.get('page')) || 1;
     const skip = (page - 1) * limit;
+    
+    console.log('🔍 GET /api/properties - Filters:', { type, category, location, createdBy, page, limit });
+
+    // Input validation
+    if (limit > 500) {
+      return NextResponse.json({
+        success: false,
+        message: 'Limit cannot exceed 500'
+      }, { status: 400 });
+    }
+
+    if (page < 1) {
+      return NextResponse.json({
+        success: false,
+        message: 'Page must be greater than 0'
+      }, { status: 400 });
+    }
     
     // Build filter
     const filter = {};
     if (type) filter.type = type;
     if (category) filter.category = category;
-    if (location) filter.location = { $regex: location, $options: 'i' }; // Case-insensitive search
+    if (location) filter.location = { $regex: location, $options: 'i' };
+    if (createdBy) filter.createdBy = createdBy;
     
     // Get total count for pagination
     const totalCount = await collection.countDocuments(filter);
@@ -105,6 +275,8 @@ export async function GET(request) {
       updatedAt: prop.updatedAt?.toISOString()
     }));
     
+    console.log(`✅ Fetched ${serializedProperties.length} properties (Total: ${totalCount})`);
+    
     return NextResponse.json({
       success: true,
       count: serializedProperties.length,
@@ -115,21 +287,21 @@ export async function GET(request) {
     }, { status: 200 });
     
   } catch (error) {
-    console.error("Error fetching properties:", error);
+    console.error("❌ Error fetching properties:", error);
+    console.error("❌ Stack trace:", error.stack);
     
-    // Handle specific MongoDB errors
     if (error.name === 'MongoServerError') {
       return NextResponse.json({
         success: false,
         message: "Database error occurred",
-        error: error.message
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       }, { status: 503 });
     }
     
     return NextResponse.json({
       success: false,
       message: "Error fetching properties",
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     }, { status: 500 });
   }
 }
