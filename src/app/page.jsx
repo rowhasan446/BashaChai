@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useContext } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { AuthContext } from "../../Provider/AuthProvider";
 
 const navLinks = [
   { name: "Home", href: "/" },
@@ -28,7 +30,66 @@ const featuredImages = [
 ];
 
 export default function HomePage() {
+  const router = useRouter();
+  const { user: authUser, logOut } = useContext(AuthContext);
   const [slideIndex, setSlideIndex] = useState(0);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [properties, setProperties] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedProperty, setSelectedProperty] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Check if user is logged in on component mount
+  useEffect(() => {
+    const userToken = localStorage.getItem('userToken');
+    if (userToken) {
+      setIsLoggedIn(true);
+    }
+  }, []);
+
+  // Fetch properties from backend
+  useEffect(() => {
+    async function fetchProperties() {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/properties?limit=8');
+        const result = await response.json();
+
+        if (result.success) {
+          setProperties(result.data);
+        } else {
+          setError(result.message || 'Failed to load properties');
+        }
+      } catch (error) {
+        console.error('Error fetching properties:', error);
+        setError('Failed to load properties');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchProperties();
+  }, []);
+
+  // Close modal when clicking outside
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        closeModal();
+      }
+    };
+
+    if (isModalOpen) {
+      document.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isModalOpen]);
 
   function prevSlide() {
     setSlideIndex((slideIndex - 1 + sliderImages.length) % sliderImages.length);
@@ -37,6 +98,27 @@ export default function HomePage() {
   function nextSlide() {
     setSlideIndex((slideIndex + 1) % sliderImages.length);
   }
+
+  const handleSignOut = (e) => {
+    e.preventDefault();
+    logOut()
+      .then(() => console.log('User signed out successfully'))
+      .catch((error) => console.error('Error signing out:', error));
+  };
+
+  const handleSignIn = (e) => {
+    router.push('/Login');
+  };
+
+  const openModal = (property) => {
+    setSelectedProperty(property);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setTimeout(() => setSelectedProperty(null), 300);
+  };
 
   return (
     <main className="font-sans bg-gray-50 text-black">
@@ -59,11 +141,23 @@ export default function HomePage() {
             ))}
           </ul>
           <div className="ml-8 flex space-x-4">
-            <Link href="/Login">
-              <button className="px-4 py-2 rounded-md border border-gray-300 hover:shadow-md hover:bg-gray-100 transition">
-                Login
-              </button>
-            </Link>
+            <>
+              {authUser ? (
+                <button
+                  onClick={handleSignOut}
+                  className="text-[15px] tracking-widest bg-purple-400 px-6 py-2 text-black hover:bg-purple-500 transition-colors duration-200"
+                >
+                  Sign Out
+                </button>
+              ) : (
+                <button
+                  onClick={handleSignIn}
+                  className="text-[15px] tracking-widest bg-purple-400 px-6 py-2 text-black hover:bg-purple-500 transition-colors duration-200"
+                >
+                  Sign In
+                </button>
+              )}
+            </>
             <Link href="/list-property">
               <button className="px-4 py-2 rounded-md bg-purple-700 text-white hover:bg-purple-600 shadow hover:shadow-lg transition">
                 List Your Property
@@ -81,7 +175,6 @@ export default function HomePage() {
           className="w-full h-64 sm:h-80 md:h-96 object-cover transition-opacity duration-500"
           key={sliderImages[slideIndex]}
         />
-        {/* Arrows */}
         <button
           onClick={prevSlide}
           aria-label="Previous Slide"
@@ -96,7 +189,6 @@ export default function HomePage() {
         >
           &#8250;
         </button>
-        {/* Dots */}
         <div className="absolute bottom-3 left-0 right-0 flex justify-center space-x-3">
           {sliderImages.map((_, idx) => (
             <button
@@ -166,7 +258,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Top Picks */}
+      {/* Top Picks - WITH FETCHED DATA */}
       <section className="bg-gray-100 py-12">
         <div className="max-w-6xl mx-auto text-center">
           <div className="inline-flex space-x-4 mb-6">
@@ -181,40 +273,32 @@ export default function HomePage() {
             </button>
           </div>
           <p className="mb-8">Explore a wide range of properties for sale and rent, tailored to your needs.</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <ListingCard
-              title="3 Bedroom Flat for rent in Khilgaon"
-              location="Khilgaon, Dhaka"
-              price="27,000/package"
-              beds={3}
-              baths={2}
-              img={featuredImages[0]}
-            />
-            <ListingCard
-              title="3 Bedroom Flat for rent in Farmgate"
-              location="Farmgate, Dhaka"
-              price="Call for Price"
-              beds={2}
-              baths={2}
-              img={featuredImages[1]}
-            />
-            <ListingCard
-              title="Office Space for rent in Motijheel"
-              location="Motijheel, Dhaka"
-              price="50,000/package"
-              beds={0}
-              baths={1}
-              img={featuredImages[3]}
-            />
-            <ListingCard
-              title="Girls Hostel Room to rent in Dhanmondi"
-              location="Dhanmondi, Dhaka"
-              price="Call for Price"
-              beds={1}
-              baths={1}
-              img={featuredImages[4]}
-            />
-          </div>
+          
+          {loading ? (
+            <div className="py-12">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-700"></div>
+              <p className="mt-4 text-gray-600">Loading properties...</p>
+            </div>
+          ) : error ? (
+            <div className="py-12">
+              <p className="text-red-600">{error}</p>
+            </div>
+          ) : properties.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {properties.map((property) => (
+                <ListingCard
+                  key={property._id}
+                  property={property}
+                  onViewDetails={() => openModal(property)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="py-12">
+              <p className="text-gray-600">No properties found. Be the first to list!</p>
+            </div>
+          )}
+          
           <div className="mt-10">
             <Link href="/listings">
               <button className="px-6 py-3 rounded-md bg-purple-700 text-white hover:bg-purple-600 shadow hover:shadow-lg transition">
@@ -333,6 +417,11 @@ export default function HomePage() {
         </div>
         <div className="text-center text-gray-300">© 2025 BashaChai. All rights reserved.</div>
       </footer>
+
+      {/* Property Details Modal */}
+      {isModalOpen && selectedProperty && (
+        <PropertyModal property={selectedProperty} onClose={closeModal} />
+      )}
     </main>
   );
 }
@@ -349,21 +438,183 @@ function CategoryCard({ img, title, count }) {
   );
 }
 
-function ListingCard({ title, location, price, beds, baths, img }) {
+function ListingCard({ property, onViewDetails }) {
+  const { title, location, price, beds, baths, image } = property;
+  const fallbackImage = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80";
+  
   return (
     <div className="rounded-xl shadow-md bg-white overflow-hidden hover:shadow-xl transform hover:-translate-y-2 transition duration-300 cursor-pointer p-4 flex flex-col">
-      <img src={img} alt={title} className="w-full h-32 object-cover rounded-xl mb-3" />
+      <img src={image || fallbackImage} alt={title} className="w-full h-32 object-cover rounded-xl mb-3" />
       <div className="text-black font-semibold text-lg">{title}</div>
       <div className="text-black text-sm mt-1">{location}</div>
       <div className="text-black text-sm mt-1">
         {beds > 0 && `${beds} Beds`} {beds > 0 && baths > 0 && " • "} {baths > 0 && `${baths} Baths`}
       </div>
       <div className="text-black font-bold mt-2">{price}</div>
-      <Link href="/listing-details" className="mt-auto">
-        <button className="mt-4 px-4 py-2 rounded-md bg-purple-700 text-white hover:bg-purple-600 shadow hover:shadow-lg transition w-full">
-          View Details
-        </button>
-      </Link>
+      <button
+        onClick={onViewDetails}
+        className="mt-4 px-4 py-2 rounded-md bg-purple-700 text-white hover:bg-purple-600 shadow hover:shadow-lg transition w-full"
+      >
+        View Details
+      </button>
+    </div>
+  );
+}
+
+function PropertyModal({ property, onClose }) {
+  const fallbackImage = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80";
+  
+  return (
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header with Close Button */}
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center z-10">
+          <h2 className="text-2xl font-bold text-gray-900">Property Details</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full p-2 transition"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Property Image */}
+        <div className="w-full h-80 overflow-hidden">
+          <img
+            src={property.image || fallbackImage}
+            alt={property.title}
+            className="w-full h-full object-cover"
+          />
+        </div>
+
+        {/* Property Details */}
+        <div className="p-6 space-y-6">
+          {/* Title and Price */}
+          <div className="border-b border-gray-200 pb-4">
+            <h3 className="text-3xl font-bold text-gray-900 mb-2">{property.title}</h3>
+            <div className="flex items-center justify-between">
+              <p className="text-2xl font-bold text-purple-700">{property.price}</p>
+              <span className={`px-4 py-1 rounded-full text-sm font-semibold ${
+                property.type === 'rent' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+              }`}>
+                For {property.type === 'rent' ? 'Rent' : 'Sale'}
+              </span>
+            </div>
+          </div>
+
+          {/* Location and Category */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Location</p>
+              <p className="text-lg font-semibold text-gray-900 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                {property.location}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Category</p>
+              <p className="text-lg font-semibold text-gray-900">{property.category}</p>
+            </div>
+          </div>
+
+          {/* Property Features */}
+          <div className="bg-gray-50 rounded-xl p-4">
+            <h4 className="text-lg font-semibold text-gray-900 mb-3">Property Features</h4>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center p-3 bg-white rounded-lg">
+                <svg className="w-8 h-8 mx-auto mb-2 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                <p className="text-sm text-gray-500">Bedrooms</p>
+                <p className="text-xl font-bold text-gray-900">{property.beds || 0}</p>
+              </div>
+              <div className="text-center p-3 bg-white rounded-lg">
+                <svg className="w-8 h-8 mx-auto mb-2 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
+                </svg>
+                <p className="text-sm text-gray-500">Bathrooms</p>
+                <p className="text-xl font-bold text-gray-900">{property.baths || 0}</p>
+              </div>
+              <div className="text-center p-3 bg-white rounded-lg">
+                <svg className="w-8 h-8 mx-auto mb-2 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
+                <p className="text-sm text-gray-500">Size</p>
+                <p className="text-xl font-bold text-gray-900">{property.size ? `${property.size} sqft` : 'N/A'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <h4 className="text-lg font-semibold text-gray-900 mb-3">Description</h4>
+            <p className="text-gray-700 leading-relaxed">{property.description}</p>
+          </div>
+
+          {/* Owner Information */}
+          <div className="bg-purple-50 rounded-xl p-6 border border-purple-100">
+            <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <svg className="w-6 h-6 mr-2 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              Property Owner
+            </h4>
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm text-gray-500">Name</p>
+                <p className="text-lg font-semibold text-gray-900">{property.createdByName || 'Property Owner'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Email</p>
+                <p className="text-lg font-semibold text-gray-900">{property.createdByEmail || 'contact@bashachai.com'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Posted On</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {property.createdAt ? new Date(property.createdAt).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  }) : 'N/A'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Contact Buttons */}
+          <div className="flex gap-4 pt-4">
+            <a
+              href={`mailto:${property.createdByEmail}?subject=Inquiry about ${property.title}`}
+              className="flex-1 px-6 py-3 bg-purple-700 text-white rounded-lg hover:bg-purple-600 transition font-semibold text-center flex items-center justify-center"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Send Email
+            </a>
+            <a
+              href={`tel:+8801775549500`}
+              className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold text-center flex items-center justify-center"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+              Call Now
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
