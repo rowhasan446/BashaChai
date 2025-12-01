@@ -168,10 +168,8 @@ export default function HomePage() {
 
     setFavorites((prevFavorites) => {
       if (prevFavorites.includes(propertyId)) {
-        // Remove from favorites
         return prevFavorites.filter(id => id !== propertyId);
       } else {
-        // Add to favorites
         return [...prevFavorites, propertyId];
       }
     });
@@ -231,7 +229,6 @@ export default function HomePage() {
                     onClick={toggleProfileDropdown}
                     className="flex items-center space-x-2 focus:outline-none"
                   >
-                    {/* Static User Icon */}
                     <div className="w-10 h-10 rounded-full bg-purple-700 hover:bg-purple-600 transition flex items-center justify-center text-white border-2 border-purple-700 cursor-pointer">
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -239,13 +236,10 @@ export default function HomePage() {
                     </div>
                   </button>
 
-                  {/* Dropdown Menu */}
                   {profileDropdownOpen && (
                     <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50 animate-fadeIn">
-                      {/* User Info Section */}
                       <div className="px-4 py-3 border-b border-gray-200">
                         <div className="flex items-center space-x-3">
-                          {/* Static Icon in Dropdown */}
                           <div className="w-12 h-12 rounded-full bg-purple-700 flex items-center justify-center text-white border-2 border-purple-700">
                             <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -262,7 +256,6 @@ export default function HomePage() {
                         </div>
                       </div>
 
-                      {/* Menu Items */}
                       <div className="py-2">
                         <Link
                           href="/favourites"
@@ -287,7 +280,6 @@ export default function HomePage() {
                         </Link>
                       </div>
 
-                      {/* Sign Out */}
                       <div className="border-t border-gray-200 pt-2">
                         <button
                           onClick={handleSignOut}
@@ -399,7 +391,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Top Picks - WITH FETCHED DATA AND FAVORITES */}
+      {/* Top Picks */}
       <section className="bg-gray-100 py-12">
         <div className="max-w-6xl mx-auto text-center">
           <div className="inline-flex space-x-4 mb-6">
@@ -495,57 +487,21 @@ export default function HomePage() {
           <div>
             <h4 className="font-semibold mb-3">Information</h4>
             <ul className="space-y-2">
-              <li>
-                <Link href="/about" className="hover:underline">
-                  About Us
-                </Link>
-              </li>
-              <li>
-                <Link href="/post-ad" className="hover:underline">
-                  How to Post Ad
-                </Link>
-              </li>
-              <li>
-                <Link href="/boost-ad" className="hover:underline">
-                  How to Boost Ad
-                </Link>
-              </li>
-              <li>
-                <Link href="/faq" className="hover:underline">
-                  FAQ
-                </Link>
-              </li>
-              <li>
-                <Link href="/blog" className="hover:underline">
-                  Blog
-                </Link>
-              </li>
+              <li><Link href="/about" className="hover:underline">About Us</Link></li>
+              <li><Link href="/post-ad" className="hover:underline">How to Post Ad</Link></li>
+              <li><Link href="/boost-ad" className="hover:underline">How to Boost Ad</Link></li>
+              <li><Link href="/faq" className="hover:underline">FAQ</Link></li>
+              <li><Link href="/blog" className="hover:underline">Blog</Link></li>
             </ul>
           </div>
 
           <div>
             <h4 className="font-semibold mb-3">Legal and Policy</h4>
             <ul className="space-y-2">
-              <li>
-                <Link href="/privacy-policy" className="hover:underline">
-                  Privacy Policy
-                </Link>
-              </li>
-              <li>
-                <Link href="/terms" className="hover:underline">
-                  Terms of Use
-                </Link>
-              </li>
-              <li>
-                <Link href="/cookies" className="hover:underline">
-                  Cookie Policy
-                </Link>
-              </li>
-              <li>
-                <Link href="/listing-policy" className="hover:underline">
-                  Listing Policy
-                </Link>
-              </li>
+              <li><Link href="/privacy-policy" className="hover:underline">Privacy Policy</Link></li>
+              <li><Link href="/terms" className="hover:underline">Terms of Use</Link></li>
+              <li><Link href="/cookies" className="hover:underline">Cookie Policy</Link></li>
+              <li><Link href="/listing-policy" className="hover:underline">Listing Policy</Link></li>
             </ul>
           </div>
 
@@ -582,12 +538,14 @@ function CategoryCard({ img, title, count }) {
 }
 
 function ListingCard({ property, onViewDetails, onToggleFavorite, isFavorited }) {
-  const { title, location, price, beds, baths, image, _id } = property;
+  const { title, location, price, beds, baths, image, images, _id } = property;
   const fallbackImage = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80";
+  
+  // ✅ Use first image from images array, fallback to single image or default
+  const displayImage = (images && images.length > 0) ? images[0] : (image || fallbackImage);
   
   return (
     <div className="rounded-xl shadow-md bg-white overflow-hidden hover:shadow-xl transform hover:-translate-y-2 transition duration-300 p-4 flex flex-col relative">
-      {/* Favorite Button - Top Right */}
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -607,7 +565,19 @@ function ListingCard({ property, onViewDetails, onToggleFavorite, isFavorited })
         )}
       </button>
 
-      <img src={image || fallbackImage} alt={title} className="w-full h-32 object-cover rounded-xl mb-3" />
+      <div className="relative">
+        <img src={displayImage} alt={title} className="w-full h-32 object-cover rounded-xl mb-3" />
+        {/* ✅ Show image count badge if multiple images */}
+        {images && images.length > 1 && (
+          <div className="absolute bottom-5 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded-full flex items-center">
+            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            {images.length}
+          </div>
+        )}
+      </div>
+
       <div className="text-black font-semibold text-lg">{title}</div>
       <div className="text-black text-sm mt-1">{location}</div>
       <div className="text-black text-sm mt-1">
@@ -624,8 +594,49 @@ function ListingCard({ property, onViewDetails, onToggleFavorite, isFavorited })
   );
 }
 
+// ✅ UPDATED: PropertyModal with Image Carousel
 function PropertyModal({ property, onClose }) {
   const fallbackImage = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80";
+  
+  // ✅ Get images array - support both new 'images' array and old single 'image' field
+  const propertyImages = property.images && property.images.length > 0 
+    ? property.images 
+    : property.image 
+      ? [property.image] 
+      : [fallbackImage];
+
+  // ✅ State for image carousel
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  // ✅ Navigate to previous image
+  const previousImage = () => {
+    setCurrentImageIndex((prev) => 
+      prev === 0 ? propertyImages.length - 1 : prev - 1
+    );
+  };
+
+  // ✅ Navigate to next image
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => 
+      prev === propertyImages.length - 1 ? 0 : prev + 1
+    );
+  };
+
+  // ✅ Go to specific image
+  const goToImage = (index) => {
+    setCurrentImageIndex(index);
+  };
+
+  // ✅ Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'ArrowLeft') previousImage();
+      if (e.key === 'ArrowRight') nextImage();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentImageIndex, propertyImages.length]);
   
   return (
     <div 
@@ -636,7 +647,7 @@ function PropertyModal({ property, onClose }) {
         className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal Header with Close Button */}
+        {/* Modal Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center z-10">
           <h2 className="text-2xl font-bold text-gray-900">Property Details</h2>
           <button
@@ -649,14 +660,86 @@ function PropertyModal({ property, onClose }) {
           </button>
         </div>
 
-        {/* Property Image */}
-        <div className="w-full h-80 overflow-hidden">
+        {/* ✅ UPDATED: Image Carousel */}
+        <div className="relative w-full h-80 overflow-hidden bg-gray-900">
+          {/* Current Image */}
           <img
-            src={property.image || fallbackImage}
-            alt={property.title}
-            className="w-full h-full object-cover"
+            src={propertyImages[currentImageIndex]}
+            alt={`${property.title} - Image ${currentImageIndex + 1}`}
+            className="w-full h-full object-contain transition-opacity duration-300"
           />
+
+          {/* ✅ Navigation Buttons - Only show if multiple images */}
+          {propertyImages.length > 1 && (
+            <>
+              <button
+                onClick={previousImage}
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-900 p-3 rounded-full shadow-lg transition-all hover:scale-110"
+                aria-label="Previous image"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+
+              <button
+                onClick={nextImage}
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-900 p-3 rounded-full shadow-lg transition-all hover:scale-110"
+                aria-label="Next image"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+
+              {/* ✅ Image Counter */}
+              <div className="absolute top-4 right-4 bg-black bg-opacity-70 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                {currentImageIndex + 1} / {propertyImages.length}
+              </div>
+
+              {/* ✅ Dot Indicators */}
+              <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2">
+                {propertyImages.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => goToImage(index)}
+                    className={`transition-all ${
+                      index === currentImageIndex
+                        ? 'w-8 h-3 bg-white'
+                        : 'w-3 h-3 bg-white bg-opacity-50 hover:bg-opacity-75'
+                    } rounded-full`}
+                    aria-label={`Go to image ${index + 1}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
+
+        {/* ✅ Thumbnail Gallery - Only show if multiple images */}
+        {propertyImages.length > 1 && (
+          <div className="px-6 pt-4 pb-2">
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {propertyImages.map((img, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToImage(index)}
+                  className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
+                    index === currentImageIndex
+                      ? 'border-purple-700 ring-2 ring-purple-300'
+                      : 'border-gray-300 hover:border-purple-400'
+                  }`}
+                >
+                  <img
+                    src={img}
+                    alt={`Thumbnail ${index + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Property Details */}
         <div className="p-6 space-y-6">
