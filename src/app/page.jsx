@@ -45,16 +45,20 @@ export default function HomePage() {
 
   // Load favorites from localStorage on mount
   useEffect(() => {
-    const storedFavorites = localStorage.getItem('favorites');
-    if (storedFavorites) {
-      setFavorites(JSON.parse(storedFavorites));
+    if (typeof window !== 'undefined') {
+      try {
+        const storedFavorites = localStorage.getItem('favorites');
+        if (storedFavorites) {
+          const parsed = JSON.parse(storedFavorites);
+          setFavorites(Array.isArray(parsed) ? parsed : []);
+          console.log('✅ Loaded favorites from localStorage:', parsed.length);
+        }
+      } catch (error) {
+        console.error('Error loading favorites:', error);
+        setFavorites([]);
+      }
     }
   }, []);
-
-  // Save favorites to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('favorites', JSON.stringify(favorites));
-  }, [favorites]);
 
   // Check if user is logged in on component mount
   useEffect(() => {
@@ -136,7 +140,12 @@ export default function HomePage() {
     e.preventDefault();
     setProfileDropdownOpen(false);
     logOut()
-      .then(() => console.log('User signed out successfully'))
+      .then(() => {
+        console.log('User signed out successfully');
+        // Clear favorites on logout (optional)
+        // setFavorites([]);
+        // localStorage.removeItem('favorites');
+      })
       .catch((error) => console.error('Error signing out:', error));
   };
 
@@ -158,8 +167,8 @@ export default function HomePage() {
     setProfileDropdownOpen(!profileDropdownOpen);
   };
 
-  // Toggle favorite function
-  const toggleFavorite = (propertyId) => {
+  // Toggle favorite function - stores full property object
+  const toggleFavorite = (property) => {
     if (!authUser) {
       alert('Please sign in to add favorites!');
       router.push('/Login');
@@ -172,12 +181,24 @@ export default function HomePage() {
       } else {
         return [...prevFavorites, propertyId];
       }
+
+      // Save to localStorage
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('favorites', JSON.stringify(updatedFavorites));
+          console.log('💾 Saved to localStorage. Total favorites:', updatedFavorites.length);
+        } catch (error) {
+          console.error('Error saving favorites:', error);
+        }
+      }
+
+      return updatedFavorites;
     });
   };
 
   // Check if property is favorited
   const isFavorited = (propertyId) => {
-    return favorites.includes(propertyId);
+    return favorites.some(fav => fav._id === propertyId);
   };
 
   return (
@@ -265,7 +286,7 @@ export default function HomePage() {
                           <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                           </svg>
-                          Favourites
+                          Favourites ({favorites.length})
                         </Link>
 
                         <Link
@@ -423,7 +444,7 @@ export default function HomePage() {
                   key={property._id}
                   property={property}
                   onViewDetails={() => openModal(property)}
-                  onToggleFavorite={toggleFavorite}
+                  onToggleFavorite={() => toggleFavorite(property)}
                   isFavorited={isFavorited(property._id)}
                 />
               ))}
@@ -549,7 +570,7 @@ function ListingCard({ property, onViewDetails, onToggleFavorite, isFavorited })
       <button
         onClick={(e) => {
           e.stopPropagation();
-          onToggleFavorite(_id);
+          onToggleFavorite();
         }}
         className="absolute top-6 right-6 z-10 bg-white rounded-full p-2 shadow-lg hover:scale-110 transition-transform"
         aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
@@ -596,6 +617,7 @@ function ListingCard({ property, onViewDetails, onToggleFavorite, isFavorited })
 
 // ✅ UPDATED: PropertyModal with Image Carousel
 function PropertyModal({ property, onClose }) {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const fallbackImage = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80";
   
   // ✅ Get images array - support both new 'images' array and old single 'image' field
@@ -743,7 +765,6 @@ function PropertyModal({ property, onClose }) {
 
         {/* Property Details */}
         <div className="p-6 space-y-6">
-          {/* Title and Price */}
           <div className="border-b border-gray-200 pb-4">
             <h3 className="text-3xl font-bold text-gray-900 mb-2">{property.title}</h3>
             <div className="flex items-center justify-between">
@@ -756,7 +777,6 @@ function PropertyModal({ property, onClose }) {
             </div>
           </div>
 
-          {/* Location and Category */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-gray-500 mb-1">Location</p>
@@ -774,7 +794,6 @@ function PropertyModal({ property, onClose }) {
             </div>
           </div>
 
-          {/* Property Features */}
           <div className="bg-gray-50 rounded-xl p-4">
             <h4 className="text-lg font-semibold text-gray-900 mb-3">Property Features</h4>
             <div className="grid grid-cols-3 gap-4">
@@ -802,13 +821,11 @@ function PropertyModal({ property, onClose }) {
             </div>
           </div>
 
-          {/* Description */}
           <div>
             <h4 className="text-lg font-semibold text-gray-900 mb-3">Description</h4>
             <p className="text-gray-700 leading-relaxed">{property.description}</p>
           </div>
 
-          {/* Owner Information */}
           <div className="bg-purple-50 rounded-xl p-6 border border-purple-100">
             <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
               <svg className="w-6 h-6 mr-2 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -838,7 +855,6 @@ function PropertyModal({ property, onClose }) {
             </div>
           </div>
 
-          {/* Contact Buttons */}
           <div className="flex gap-4 pt-4">
             <a
               href={`mailto:${property.createdByEmail}?subject=Inquiry about ${property.title}`}
