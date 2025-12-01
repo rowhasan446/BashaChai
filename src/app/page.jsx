@@ -176,17 +176,10 @@ export default function HomePage() {
     }
 
     setFavorites((prevFavorites) => {
-      let updatedFavorites;
-      const isFavorited = prevFavorites.some(fav => fav._id === property._id);
-
-      if (isFavorited) {
-        // Remove from favorites
-        updatedFavorites = prevFavorites.filter(fav => fav._id !== property._id);
-        console.log('❌ Removed from favorites:', property.title);
+      if (prevFavorites.includes(propertyId)) {
+        return prevFavorites.filter(id => id !== propertyId);
       } else {
-        // Add to favorites (store full property object)
-        updatedFavorites = [...prevFavorites, property];
-        console.log('✅ Added to favorites:', property.title);
+        return [...prevFavorites, propertyId];
       }
 
       // Save to localStorage
@@ -569,6 +562,7 @@ function ListingCard({ property, onViewDetails, onToggleFavorite, isFavorited })
   const { title, location, price, beds, baths, image, images, _id } = property;
   const fallbackImage = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80";
   
+  // ✅ Use first image from images array, fallback to single image or default
   const displayImage = (images && images.length > 0) ? images[0] : (image || fallbackImage);
   
   return (
@@ -594,6 +588,7 @@ function ListingCard({ property, onViewDetails, onToggleFavorite, isFavorited })
 
       <div className="relative">
         <img src={displayImage} alt={title} className="w-full h-32 object-cover rounded-xl mb-3" />
+        {/* ✅ Show image count badge if multiple images */}
         {images && images.length > 1 && (
           <div className="absolute bottom-5 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded-full flex items-center">
             <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -604,7 +599,7 @@ function ListingCard({ property, onViewDetails, onToggleFavorite, isFavorited })
         )}
       </div>
 
-      <div className="text-black font-semibold text-lg line-clamp-2">{title}</div>
+      <div className="text-black font-semibold text-lg">{title}</div>
       <div className="text-black text-sm mt-1">{location}</div>
       <div className="text-black text-sm mt-1">
         {beds > 0 && `${beds} Beds`} {beds > 0 && baths > 0 && " • "} {baths > 0 && `${baths} Baths`}
@@ -620,32 +615,41 @@ function ListingCard({ property, onViewDetails, onToggleFavorite, isFavorited })
   );
 }
 
+// ✅ UPDATED: PropertyModal with Image Carousel
 function PropertyModal({ property, onClose }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const fallbackImage = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80";
   
+  // ✅ Get images array - support both new 'images' array and old single 'image' field
   const propertyImages = property.images && property.images.length > 0 
     ? property.images 
     : property.image 
       ? [property.image] 
       : [fallbackImage];
 
+  // ✅ State for image carousel
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  // ✅ Navigate to previous image
   const previousImage = () => {
     setCurrentImageIndex((prev) => 
       prev === 0 ? propertyImages.length - 1 : prev - 1
     );
   };
 
+  // ✅ Navigate to next image
   const nextImage = () => {
     setCurrentImageIndex((prev) => 
       prev === propertyImages.length - 1 ? 0 : prev + 1
     );
   };
 
+  // ✅ Go to specific image
   const goToImage = (index) => {
     setCurrentImageIndex(index);
   };
 
+  // ✅ Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'ArrowLeft') previousImage();
@@ -665,6 +669,7 @@ function PropertyModal({ property, onClose }) {
         className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Modal Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center z-10">
           <h2 className="text-2xl font-bold text-gray-900">Property Details</h2>
           <button
@@ -677,13 +682,16 @@ function PropertyModal({ property, onClose }) {
           </button>
         </div>
 
+        {/* ✅ UPDATED: Image Carousel */}
         <div className="relative w-full h-80 overflow-hidden bg-gray-900">
+          {/* Current Image */}
           <img
             src={propertyImages[currentImageIndex]}
             alt={`${property.title} - Image ${currentImageIndex + 1}`}
             className="w-full h-full object-contain transition-opacity duration-300"
           />
 
+          {/* ✅ Navigation Buttons - Only show if multiple images */}
           {propertyImages.length > 1 && (
             <>
               <button
@@ -706,10 +714,12 @@ function PropertyModal({ property, onClose }) {
                 </svg>
               </button>
 
+              {/* ✅ Image Counter */}
               <div className="absolute top-4 right-4 bg-black bg-opacity-70 text-white px-3 py-1 rounded-full text-sm font-semibold">
                 {currentImageIndex + 1} / {propertyImages.length}
               </div>
 
+              {/* ✅ Dot Indicators */}
               <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2">
                 {propertyImages.map((_, index) => (
                   <button
@@ -728,6 +738,7 @@ function PropertyModal({ property, onClose }) {
           )}
         </div>
 
+        {/* ✅ Thumbnail Gallery - Only show if multiple images */}
         {propertyImages.length > 1 && (
           <div className="px-6 pt-4 pb-2">
             <div className="flex gap-2 overflow-x-auto pb-2">
@@ -752,6 +763,7 @@ function PropertyModal({ property, onClose }) {
           </div>
         )}
 
+        {/* Property Details */}
         <div className="p-6 space-y-6">
           <div className="border-b border-gray-200 pb-4">
             <h3 className="text-3xl font-bold text-gray-900 mb-2">{property.title}</h3>
