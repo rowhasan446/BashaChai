@@ -19,6 +19,55 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+// Helper function to upload single image to Cloudinary
+async function uploadImageToCloudinary(file, userId) {
+  // Validate file type
+  if (!file.type.startsWith('image/')) {
+    throw new Error(`File ${file.name} is not an image`);
+  }
+
+  // Validate file size (10MB limit)
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  if (file.size > maxSize) {
+    throw new Error(`File ${file.name} exceeds 10MB limit`);
+  }
+
+  // Convert file to buffer
+  const bytes = await file.arrayBuffer();
+  const buffer = Buffer.from(bytes);
+
+  // Upload to Cloudinary
+  const uploadResponse = await new Promise((resolve, reject) => {
+    cloudinary.uploader
+      .upload_stream(
+        {
+          resource_type: 'image',
+          folder: 'BASHACHAI_properties',
+          public_id: `property_${userId}_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          transformation: [
+            { width: 1200, height: 800, crop: 'fill' },
+            { quality: 'auto' },
+            { format: 'auto' },
+          ],
+        },
+        (error, result) => {
+          if (error) {
+            console.error('Cloudinary upload error:', error);
+            reject(new Error(`Cloudinary upload failed: ${error.message}`));
+          } else {
+            resolve(result);
+          }
+        }
+      )
+      .end(buffer);
+  });
+
+  return {
+    url: uploadResponse.secure_url,
+    publicId: uploadResponse.public_id,
+  };
+}
+
 // POST - Create new property (AUTHENTICATED USERS ONLY)
 export async function POST(request) {
   let user = null;
@@ -44,9 +93,12 @@ export async function POST(request) {
     const category = formData.get('category');
     const type = formData.get('type');
     const size = formData.get('size');
-    const file = formData.get('image');
+    
+    // ✅ UPDATED: Get all images using getAll()
+    const imageFiles = formData.getAll('images');
 
     console.log('🔍 POST /api/properties - User:', user.email);
+    console.log('🖼️ Number of images:', imageFiles.length);
     
     // Validate required fields
     if (!title || typeof title !== 'string' || title.trim().length < 1) {
@@ -77,70 +129,64 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    let imageUrl = '';
-    let imagePublicId = '';
+    // ✅ UPDATED: Arrays to store multiple image URLs and public IDs
+    let imageUrls = [];
+    let imagePublicIds = [];
 
-    // Upload image to Cloudinary if provided
-    if (file && file.size > 0) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        return NextResponse.json({
-          success: false,
-          message: 'Only image files are allowed'
-        }, { status: 400 });
-      }
+    // ✅ UPDATED: Upload multiple images to Cloudinary
+    if (imageFiles && imageFiles.length > 0) {
+      // Filter out empty files
+      const validImageFiles = imageFiles.filter(file => file && file.size > 0);
+      
+      if (validImageFiles.length > 0) {
+        // Limit number of images (optional, e.g., max 10 images)
+        const maxImages = 10;
+        if (validImageFiles.length > maxImages) {
+          return NextResponse.json({
+            success: false,
+            message: `Maximum ${maxImages} images allowed`
+          }, { status: 400 });
+        }
 
-      // Validate file size (10MB limit for properties)
-      const maxSize = 10 * 1024 * 1024; // 10MB
-      if (file.size > maxSize) {
-        return NextResponse.json({
-          success: false,
-          message: 'File size must be less than 10MB'
-        }, { status: 400 });
-      }
+        try {
+          console.log(`📤 Uploading ${validImageFiles.length} images to Cloudinary...`);
+          
+          // ✅ Use Promise.all to upload all images concurrently
+          const uploadPromises = validImageFiles.map(file => 
+            uploadImageToCloudinary(file, user.userId)
+          );
 
-      try {
-        // Convert file to buffer for Cloudinary upload
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
+          const uploadResults = await Promise.all(uploadPromises);
 
-        // Upload to Cloudinary
-        const uploadResponse = await new Promise((resolve, reject) => {
-          cloudinary.uploader
-            .upload_stream(
-              {
-                resource_type: 'image',
-                folder: 'BASHACHAI_properties',
-                public_id: `property_${user.userId}_${Date.now()}`,
-                transformation: [
-                  { width: 1200, height: 800, crop: 'fill' },
-                  { quality: 'auto' },
-                  { format: 'auto' },
-                ],
-              },
-              (error, result) => {
-                if (error) {
-                  console.error('Cloudinary upload error:', error);
-                  reject(new Error(`Cloudinary upload failed: ${error.message}`));
-                } else {
-                  resolve(result);
-                }
-              }
-            )
-            .end(buffer);
-        });
+          // Extract URLs and public IDs
+          imageUrls = uploadResults.map(result => result.url);
+          imagePublicIds = uploadResults.map(result => result.publicId);
 
-        imageUrl = uploadResponse.secure_url;
-        imagePublicId = uploadResponse.public_id;
+          console.log(`✅ Successfully uploaded ${imageUrls.length} images`);
+          
+        } catch (uploadError) {
+          console.error('❌ Error uploading images:', uploadError);
+          
+          // If any upload fails, try to clean up already uploaded images
+          if (imagePublicIds.length > 0) {
+            console.log('🧹 Cleaning up uploaded images...');
+            try {
+              await Promise.all(
+                imagePublicIds.map(publicId => 
+                  cloudinary.uploader.destroy(publicId)
+                )
+              );
+            } catch (cleanupError) {
+              console.error('❌ Error cleaning up images:', cleanupError);
+            }
+          }
 
-        console.log('✅ Image uploaded to Cloudinary:', imagePublicId);
-      } catch (uploadError) {
-        console.error('❌ Error uploading to Cloudinary:', uploadError);
-        return NextResponse.json({
-          success: false,
-          message: 'Failed to upload image',
-          error: uploadError.message
-        }, { status: 500 });
+          return NextResponse.json({
+            success: false,
+            message: 'Failed to upload images',
+            error: uploadError.message
+          }, { status: 500 });
+        }
       }
     }
 
@@ -148,7 +194,7 @@ export async function POST(request) {
     const db = client.db("BASHACHAI");
     const collection = db.collection("properties");
     
-    // Prepare property document
+    // ✅ UPDATED: Property document with arrays for images
     const propertyDoc = {
       title: title.trim(),
       location: location.trim(),
@@ -158,8 +204,15 @@ export async function POST(request) {
       description: description.trim(),
       category: category || "Flat to Rent",
       type: type || "rent",
-      image: imageUrl,
-      imagePublicId: imagePublicId,
+      
+      // ✅ UPDATED: Store arrays of images
+      images: imageUrls,
+      imagePublicIds: imagePublicIds,
+      
+      // Keep backward compatibility with single image field
+      image: imageUrls[0] || '',
+      imagePublicId: imagePublicIds[0] || '',
+      
       size: size || "",
       createdBy: user.userId,
       createdByEmail: user.email,
@@ -180,7 +233,8 @@ export async function POST(request) {
           userEmail: user.email,
           propertyTitle: propertyDoc.title,
           propertyLocation: propertyDoc.location,
-          hasImage: !!imageUrl,
+          imageCount: imageUrls.length,
+          hasImage: imageUrls.length > 0,
           timestamp: new Date(),
           ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0] || 
                     request.headers.get('x-real-ip') || 
@@ -228,7 +282,7 @@ export async function GET(request) {
     const type = searchParams.get('type');
     const category = searchParams.get('category');
     const location = searchParams.get('location');
-    const createdBy = searchParams.get('createdBy'); // Filter by user
+    const createdBy = searchParams.get('createdBy');
     const limit = parseInt(searchParams.get('limit')) || 100;
     const page = parseInt(searchParams.get('page')) || 1;
     const skip = (page - 1) * limit;

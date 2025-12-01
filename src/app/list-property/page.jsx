@@ -11,8 +11,10 @@ export default function ListProperty() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  
+  // ✅ CHANGED: Arrays for multiple images
+  const [imageFiles, setImageFiles] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
   
   const [formData, setFormData] = useState({
     title: "",
@@ -28,32 +30,27 @@ export default function ListProperty() {
 
   // Check authentication status
   useEffect(() => {
-    // Set a timeout to handle the case where user stays null/undefined
     const authCheckTimeout = setTimeout(() => {
       if (user === null || user === undefined) {
         console.log("❌ Auth timeout - redirecting to login...");
         setAuthLoading(false);
         router.push("/Login");
       }
-    }, 2000); // Wait 2 seconds for auth to load
+    }, 2000);
 
     if (user === null || user === undefined) {
-      // Still loading, wait for timeout
       setAuthLoading(true);
     } else if (!user || user === false) {
-      // User is explicitly not logged in
       console.log("❌ User not authenticated, redirecting to login...");
       setAuthLoading(false);
       clearTimeout(authCheckTimeout);
       router.push("/Login");
     } else {
-      // User is logged in
       console.log("✅ User authenticated:", user.email);
       setAuthLoading(false);
       clearTimeout(authCheckTimeout);
     }
 
-    // Cleanup timeout on unmount
     return () => clearTimeout(authCheckTimeout);
   }, [user, router]);
 
@@ -65,21 +62,28 @@ export default function ListProperty() {
     }));
   };
 
+  // ✅ UPDATED: Handle multiple image selection
   const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 10 * 1024 * 1024) {
+    const files = Array.from(e.target.files);
+    
+    if (files.length === 0) return;
+
+    // Validate file size and type
+    const validFiles = [];
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    
+    for (const file of files) {
+      if (file.size > maxSize) {
         Swal.fire({
           toast: true,
           position: "top-end",
           icon: "error",
-          title: "File size must be less than 10MB",
+          title: `${file.name} exceeds 10MB`,
           showConfirmButton: false,
           timer: 3000,
           timerProgressBar: true,
         });
-        e.target.value = null;
-        return;
+        continue;
       }
 
       if (!file.type.startsWith('image/')) {
@@ -87,30 +91,41 @@ export default function ListProperty() {
           toast: true,
           position: "top-end",
           icon: "error",
-          title: "Only image files are allowed",
+          title: `${file.name} is not an image file`,
           showConfirmButton: false,
           timer: 3000,
           timerProgressBar: true,
         });
-        e.target.value = null;
-        return;
+        continue;
       }
 
-      setImageFile(file);
-      
+      validFiles.push(file);
+    }
+
+    if (validFiles.length === 0) {
+      e.target.value = null;
+      return;
+    }
+
+    // ✅ Add new files to existing ones
+    setImageFiles(prev => [...prev, ...validFiles]);
+
+    // ✅ Create previews for all new files
+    validFiles.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreview(reader.result);
+        setImagePreviews(prev => [...prev, reader.result]);
       };
       reader.readAsDataURL(file);
-    }
+    });
+
+    e.target.value = null; // Reset input to allow re-selecting same files
   };
 
-  const handleRemoveImage = () => {
-    setImageFile(null);
-    setImagePreview(null);
-    const fileInput = document.querySelector('input[type="file"]');
-    if (fileInput) fileInput.value = '';
+  // ✅ UPDATED: Remove individual image by index
+  const handleRemoveImage = (index) => {
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
+    setImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e) => {
@@ -153,11 +168,12 @@ export default function ListProperty() {
       formDataToSend.append('type', formData.purpose);
       formDataToSend.append('size', formData.size || '');
       
-      if (imageFile) {
-        formDataToSend.append('image', imageFile);
-      }
+      // ✅ UPDATED: Append all images
+      imageFiles.forEach((file, index) => {
+        formDataToSend.append('images', file); // Use 'images' (plural) or 'image' multiple times
+      });
 
-      console.log("🔍 Submitting property with auth token...");
+      console.log("🔍 Submitting property with", imageFiles.length, "images...");
 
       const response = await fetch("/api/properties", {
         method: "POST",
@@ -188,6 +204,7 @@ export default function ListProperty() {
           timerProgressBar: true,
         });
         
+        // Reset form
         setFormData({
           title: "",
           type: "Flat to Rent",
@@ -199,11 +216,8 @@ export default function ListProperty() {
           baths: "",
           description: ""
         });
-        setImageFile(null);
-        setImagePreview(null);
-        
-        const fileInput = document.querySelector('input[type="file"]');
-        if (fileInput) fileInput.value = '';
+        setImageFiles([]);
+        setImagePreviews([]);
         
         router.push("/");
       } else {
@@ -406,37 +420,51 @@ export default function ListProperty() {
               ></textarea>
             </div>
 
+            {/* ✅ UPDATED: Multiple image upload */}
             <div className="col-span-2">
-              <label className="text-sm font-semibold text-gray-700">Property Image</label>
+              <label className="text-sm font-semibold text-gray-700">
+                Property Images ({imageFiles.length} selected)
+              </label>
               <input
                 type="file"
                 accept="image/*"
+                multiple
                 onChange={handleImageChange}
                 className="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-700 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Upload a property image (Max 10MB, JPG/PNG/WEBP)
+                Upload multiple property images (Max 10MB each, JPG/PNG/WEBP)
               </p>
               
-              {imagePreview && (
+              {/* ✅ UPDATED: Display multiple image previews in grid */}
+              {imagePreviews.length > 0 && (
                 <div className="mt-4">
-                  <p className="text-sm font-semibold text-gray-700 mb-2">Image Preview:</p>
-                  <div className="relative inline-block">
-                    <img
-                      src={imagePreview}
-                      alt="Property Preview"
-                      className="w-full max-w-md h-64 object-cover rounded-lg border-2 border-gray-300 shadow-md"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleRemoveImage}
-                      className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded-full hover:bg-red-700 transition shadow-lg"
-                      title="Remove image"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </button>
+                  <p className="text-sm font-semibold text-gray-700 mb-3">
+                    Image Previews ({imagePreviews.length}):
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {imagePreviews.map((preview, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={preview}
+                          alt={`Property Preview ${index + 1}`}
+                          className="w-full h-40 object-cover rounded-lg border-2 border-gray-300 shadow-md"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImage(index)}
+                          className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded-full hover:bg-red-700 transition shadow-lg opacity-0 group-hover:opacity-100"
+                          title="Remove image"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                        <div className="absolute bottom-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                          {index + 1}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
