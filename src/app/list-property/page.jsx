@@ -12,7 +12,7 @@ export default function ListProperty() {
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   
-  // ✅ CHANGED: Arrays for multiple images
+  // Arrays for multiple images
   const [imageFiles, setImageFiles] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
   
@@ -62,7 +62,7 @@ export default function ListProperty() {
     }));
   };
 
-  // ✅ UPDATED: Handle multiple image selection
+  // Handle multiple image selection
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
     
@@ -107,10 +107,10 @@ export default function ListProperty() {
       return;
     }
 
-    // ✅ Add new files to existing ones
+    // Add new files to existing ones
     setImageFiles(prev => [...prev, ...validFiles]);
 
-    // ✅ Create previews for all new files
+    // Create previews for all new files
     validFiles.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -122,7 +122,7 @@ export default function ListProperty() {
     e.target.value = null; // Reset input to allow re-selecting same files
   };
 
-  // ✅ UPDATED: Remove individual image by index
+  // Remove individual image by index
   const handleRemoveImage = (index) => {
     setImageFiles(prev => prev.filter((_, i) => i !== index));
     setImagePreviews(prev => prev.filter((_, i) => i !== index));
@@ -168,9 +168,9 @@ export default function ListProperty() {
       formDataToSend.append('type', formData.purpose);
       formDataToSend.append('size', formData.size || '');
       
-      // ✅ UPDATED: Append all images
+      // Append all images
       imageFiles.forEach((file, index) => {
-        formDataToSend.append('images', file); // Use 'images' (plural) or 'image' multiple times
+        formDataToSend.append('images', file);
       });
 
       console.log("🔍 Submitting property with", imageFiles.length, "images...");
@@ -314,6 +314,7 @@ export default function ListProperty() {
               />
             </div>
 
+            {/* ✅ UPDATED: Property Type Dropdown with Male and Female Hostels */}
             <div>
               <label className="text-sm font-semibold text-gray-700">Property Type *</label>
               <select
@@ -327,7 +328,8 @@ export default function ListProperty() {
                 <option value="Single Room to Rent">Single Room to Rent</option>
                 <option value="Sublet Room to Rent">Sublet Room to Rent</option>
                 <option value="Office Space to Rent">Office Space to Rent</option>
-                <option value="Girls Hostel to Rent">Girls Hostel to Rent</option>
+                <option value="Male Student Hostel">Male Student Hostel</option>
+                <option value="Female Student Hostel">Female Student Hostel</option>
               </select>
             </div>
 
@@ -420,7 +422,7 @@ export default function ListProperty() {
               ></textarea>
             </div>
 
-            {/* ✅ UPDATED: Multiple image upload */}
+            {/* Multiple image upload */}
             <div className="col-span-2">
               <label className="text-sm font-semibold text-gray-700">
                 Property Images ({imageFiles.length} selected)
@@ -436,7 +438,7 @@ export default function ListProperty() {
                 Upload multiple property images (Max 10MB each, JPG/PNG/WEBP)
               </p>
               
-              {/* ✅ UPDATED: Display multiple image previews in grid */}
+              {/* Display multiple image previews in grid */}
               {imagePreviews.length > 0 && (
                 <div className="mt-4">
                   <p className="text-sm font-semibold text-gray-700 mb-3">
