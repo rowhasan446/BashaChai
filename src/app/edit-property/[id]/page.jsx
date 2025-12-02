@@ -1,20 +1,26 @@
 "use client";
 
 import { useState, useEffect, useContext } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { AuthContext } from "../../../Provider/AuthProvider";
+import { AuthContext } from "../../../../Provider/AuthProvider";
 import Swal from "sweetalert2";
 
-export default function ListProperty() {
+export default function EditProperty() {
   const { user } = useContext(AuthContext);
   const router = useRouter();
+  const params = useParams();
+  
+  const propertyId = params?.id;
+  
   const [loading, setLoading] = useState(false);
+  const [fetchLoading, setFetchLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(true);
   
-  // Arrays for multiple images
-  const [imageFiles, setImageFiles] = useState([]);
-  const [imagePreviews, setImagePreviews] = useState([]);
+  const [existingImages, setExistingImages] = useState([]);
+  const [imagesToDelete, setImagesToDelete] = useState([]);
+  const [newImageFiles, setNewImageFiles] = useState([]);
+  const [newImagePreviews, setNewImagePreviews] = useState([]);
   
   const [formData, setFormData] = useState({
     title: "",
@@ -28,11 +34,10 @@ export default function ListProperty() {
     description: ""
   });
 
-  // Check authentication status
+  // Check authentication
   useEffect(() => {
     const authCheckTimeout = setTimeout(() => {
       if (user === null || user === undefined) {
-        console.log("❌ Auth timeout - redirecting to login...");
         setAuthLoading(false);
         router.push("/Login");
       }
@@ -41,18 +46,87 @@ export default function ListProperty() {
     if (user === null || user === undefined) {
       setAuthLoading(true);
     } else if (!user || user === false) {
-      console.log("❌ User not authenticated, redirecting to login...");
       setAuthLoading(false);
       clearTimeout(authCheckTimeout);
       router.push("/Login");
     } else {
-      console.log("✅ User authenticated:", user.email);
       setAuthLoading(false);
       clearTimeout(authCheckTimeout);
     }
 
     return () => clearTimeout(authCheckTimeout);
   }, [user, router]);
+
+  // Fetch property data
+  useEffect(() => {
+    if (!user || !propertyId) {
+      return;
+    }
+    
+    fetchPropertyData();
+  }, [user, propertyId]);
+
+  const fetchPropertyData = async () => {
+    try {
+      setFetchLoading(true);
+      
+      if (!propertyId) {
+        throw new Error("Property ID is missing");
+      }
+
+      const response = await fetch(`/api/properties/${propertyId}`);
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Failed to fetch property");
+      }
+
+      if (result.success) {
+        const property = result.data;
+        
+        // Check ownership
+        if (property.createdByEmail !== user.email) {
+          Swal.fire({
+            icon: "error",
+            title: "Unauthorized",
+            text: "You can only edit your own properties",
+            confirmButtonColor: '#7c3aed',
+          });
+          router.push("/your-properties");
+          return;
+        }
+
+        // Set form data
+        setFormData({
+          title: property.title || "",
+          type: property.category || "Flat to Rent",
+          purpose: property.type || "rent",
+          location: property.location || "",
+          price: property.price || "",
+          size: property.size || "",
+          beds: property.beds || "",
+          baths: property.baths || "",
+          description: property.description || ""
+        });
+
+        // Set existing images
+        const images = property.images || (property.image ? [property.image] : []);
+        setExistingImages(images);
+      }
+    } catch (error) {
+      console.error("❌ Error fetching property:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error Loading Property",
+        text: error.message || "Failed to load property",
+        confirmButtonColor: '#7c3aed',
+      }).then(() => {
+        router.push("/your-properties");
+      });
+    } finally {
+      setFetchLoading(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -62,27 +136,30 @@ export default function ListProperty() {
     }));
   };
 
-  // Handle multiple image selection
-  const handleImageChange = (e) => {
+  const handleRemoveExistingImage = (imageUrl) => {
+    setExistingImages(prev => prev.filter(url => url !== imageUrl));
+    setImagesToDelete(prev => [...prev, imageUrl]);
+  };
+
+  const handleNewImageChange = (e) => {
     const files = Array.from(e.target.files);
     
     if (files.length === 0) return;
 
-    // Check total image limit
-    if (imageFiles.length + files.length > 10) {
+    const totalImages = existingImages.length + newImageFiles.length + files.length - imagesToDelete.length;
+    if (totalImages > 10) {
       Swal.fire({
         icon: "warning",
         title: "Too Many Images",
-        text: `You can only upload up to 10 images. Currently you have ${imageFiles.length} images.`,
+        text: `Maximum 10 images allowed.`,
         confirmButtonColor: '#7c3aed',
       });
       e.target.value = null;
       return;
     }
 
-    // Validate file size and type
     const validFiles = [];
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 10 * 1024 * 1024;
     
     for (const file of files) {
       if (file.size > maxSize) {
@@ -103,7 +180,7 @@ export default function ListProperty() {
           toast: true,
           position: "top-end",
           icon: "error",
-          title: `${file.name} is not an image file`,
+          title: `${file.name} is not an image`,
           showConfirmButton: false,
           timer: 3000,
           timerProgressBar: true,
@@ -119,14 +196,12 @@ export default function ListProperty() {
       return;
     }
 
-    // Add new files to existing ones
-    setImageFiles(prev => [...prev, ...validFiles]);
+    setNewImageFiles(prev => [...prev, ...validFiles]);
 
-    // Create previews for all new files
     validFiles.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreviews(prev => [...prev, reader.result]);
+        setNewImagePreviews(prev => [...prev, reader.result]);
       };
       reader.readAsDataURL(file);
     });
@@ -134,10 +209,9 @@ export default function ListProperty() {
     e.target.value = null;
   };
 
-  // Remove individual image by index
-  const handleRemoveImage = (index) => {
-    setImageFiles(prev => prev.filter((_, i) => i !== index));
-    setImagePreviews(prev => prev.filter((_, i) => i !== index));
+  const handleRemoveNewImage = (index) => {
+    setNewImageFiles(prev => prev.filter((_, i) => i !== index));
+    setNewImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e) => {
@@ -147,14 +221,23 @@ export default function ListProperty() {
       Swal.fire({
         icon: "error",
         title: "Authentication Required",
-        text: "You must be logged in to list a property",
+        text: "You must be logged in to edit a property",
         confirmButtonColor: '#7c3aed',
       });
       router.push("/Login");
       return;
     }
 
-    // Validate required fields
+    if (!propertyId) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Property ID is missing",
+        confirmButtonColor: '#7c3aed',
+      });
+      return;
+    }
+
     if (!formData.title.trim()) {
       Swal.fire({
         icon: "error",
@@ -195,11 +278,14 @@ export default function ListProperty() {
       return;
     }
 
-    if (imageFiles.length === 0) {
+    const remainingImages = existingImages.filter(url => !imagesToDelete.includes(url));
+    const totalImages = remainingImages.length + newImageFiles.length;
+
+    if (totalImages === 0) {
       Swal.fire({
         icon: "warning",
         title: "No Images",
-        text: "Please upload at least one image for your property",
+        text: "Please keep at least one image for your property",
         confirmButtonColor: '#7c3aed',
       });
       return;
@@ -208,12 +294,7 @@ export default function ListProperty() {
     setLoading(true);
 
     try {
-      // Get fresh token
-      const authToken = await user.getIdToken(true); // Force refresh
-      
-      console.log("🔍 Preparing to submit property...");
-      console.log("📧 User email:", user.email);
-      console.log("🖼️ Number of images:", imageFiles.length);
+      const authToken = await user.getIdToken(true);
 
       const formDataToSend = new FormData();
       formDataToSend.append('title', formData.title.trim());
@@ -225,26 +306,22 @@ export default function ListProperty() {
       formDataToSend.append('category', formData.type);
       formDataToSend.append('type', formData.purpose);
       formDataToSend.append('size', formData.size || '');
+      formDataToSend.append('existingImages', JSON.stringify(remainingImages));
+      formDataToSend.append('imagesToDelete', JSON.stringify(imagesToDelete));
       
-      // Append all images
-      imageFiles.forEach((file, index) => {
+      newImageFiles.forEach((file) => {
         formDataToSend.append('images', file);
       });
 
-      console.log("📤 Sending request to /api/properties...");
-
-      const response = await fetch("/api/properties", {
-        method: "POST",
+      const response = await fetch(`/api/properties/${propertyId}`, {
+        method: "PUT",
         headers: {
           "Authorization": `Bearer ${authToken}`
         },
         body: formDataToSend
       });
 
-      console.log("📡 Response status:", response.status);
-
       const result = await response.json();
-      console.log("📦 Response data:", result);
 
       if (!response.ok) {
         throw new Error(result.message || `HTTP error! status: ${response.status}`);
@@ -254,42 +331,25 @@ export default function ListProperty() {
         Swal.fire({
           icon: "success",
           title: "Success!",
-          text: "Property listed successfully! 🎉",
+          text: "Property updated successfully! 🎉",
           confirmButtonColor: '#7c3aed',
           timer: 2000,
           showConfirmButton: false
         });
         
-        // Reset form
-        setFormData({
-          title: "",
-          type: "Flat to Rent",
-          purpose: "rent",
-          location: "",
-          price: "",
-          size: "",
-          beds: "",
-          baths: "",
-          description: ""
-        });
-        setImageFiles([]);
-        setImagePreviews([]);
-        
-        // Redirect to home page
         setTimeout(() => {
-          router.push("/");
+          router.push("/your-properties");
         }, 2000);
       } else {
-        throw new Error(result.message || "Failed to list property");
+        throw new Error(result.message || "Failed to update property");
       }
     } catch (error) {
       console.error("❌ Error:", error);
-      console.error("❌ Error details:", error.message);
       
       Swal.fire({
         icon: "error",
-        title: "Submission Failed",
-        text: error.message || "An error occurred while listing your property",
+        title: "Update Failed",
+        text: error.message || "An error occurred while updating your property",
         confirmButtonColor: '#7c3aed',
       });
     } finally {
@@ -297,12 +357,14 @@ export default function ListProperty() {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || fetchLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-700 mx-auto"></div>
-          <p className="mt-4 text-gray-600 text-lg">Verifying authentication...</p>
+          <p className="mt-4 text-gray-600 text-lg">
+            {authLoading ? "Verifying authentication..." : "Loading property data..."}
+          </p>
         </div>
       </div>
     );
@@ -319,6 +381,9 @@ export default function ListProperty() {
     );
   }
 
+  const remainingImages = existingImages.filter(url => !imagesToDelete.includes(url));
+  const totalImages = remainingImages.length + newImageFiles.length;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200">
@@ -330,9 +395,9 @@ export default function ListProperty() {
             <span className="text-sm text-gray-600 hidden md:block">
               Welcome, <span className="font-semibold">{user.email}</span>
             </span>
-            <Link href="/">
+            <Link href="/your-properties">
               <button className="px-4 py-2 rounded-md border border-gray-300 hover:shadow-md hover:bg-gray-100 transition">
-                Back to Home
+                Back to Your Properties
               </button>
             </Link>
           </div>
@@ -343,10 +408,10 @@ export default function ListProperty() {
         <div className="max-w-5xl mx-auto bg-white p-10 rounded-2xl shadow-xl border border-gray-100">
           
           <h1 className="text-4xl font-bold text-center text-gray-900 mb-2">
-            List Your <span className="text-purple-700">Property</span>
+            Edit Your <span className="text-purple-700">Property</span>
           </h1>
           <p className="text-center text-gray-600 mb-10">
-            Fill in your property details to publish your listing.
+            Update your property details and manage images.
           </p>
 
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -364,7 +429,6 @@ export default function ListProperty() {
               />
             </div>
 
-            {/* ✅ UPDATED: Property Type Dropdown with Male and Female Hostels */}
             <div>
               <label className="text-sm font-semibold text-gray-700">Property Type *</label>
               <select
@@ -378,8 +442,7 @@ export default function ListProperty() {
                 <option value="Single Room to Rent">Single Room to Rent</option>
                 <option value="Sublet Room to Rent">Sublet Room to Rent</option>
                 <option value="Office Space to Rent">Office Space to Rent</option>
-                <option value="Male Student Hostel">Male Student Hostel</option>
-                <option value="Female Student Hostel">Female Student Hostel</option>
+                <option value="Girls Hostel to Rent">Girls Hostel to Rent</option>
               </select>
             </div>
 
@@ -474,48 +537,96 @@ export default function ListProperty() {
               ></textarea>
             </div>
 
-            {/* Multiple image upload */}
+            {existingImages.length > 0 && (
+              <div className="col-span-2">
+                <label className="text-sm font-semibold text-gray-700">
+                  Existing Images ({remainingImages.length})
+                </label>
+                <div className="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {existingImages.map((imageUrl, index) => {
+                    const isMarkedForDeletion = imagesToDelete.includes(imageUrl);
+                    
+                    return (
+                      <div key={index} className="relative group">
+                        <img
+                          src={imageUrl}
+                          alt={`Existing ${index + 1}`}
+                          className={`w-full h-40 object-cover rounded-lg border-2 shadow-md transition ${
+                            isMarkedForDeletion 
+                              ? 'border-red-500 opacity-40' 
+                              : 'border-gray-300'
+                          }`}
+                        />
+                        {isMarkedForDeletion ? (
+                          <div className="absolute inset-0 flex items-center justify-center bg-red-500 bg-opacity-50 rounded-lg">
+                            <span className="text-white font-bold text-sm">WILL BE DELETED</span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveExistingImage(imageUrl)}
+                            className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded-full hover:bg-red-700 transition shadow-lg opacity-0 group-hover:opacity-100"
+                            title="Mark for deletion"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        )}
+                        <div className="absolute bottom-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                          Existing #{index + 1}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="col-span-2">
               <label className="text-sm font-semibold text-gray-700">
-                Property Images * ({imageFiles.length}/10 selected)
+                Add New Images ({totalImages}/10 total)
               </label>
               <input
                 type="file"
                 accept="image/*"
                 multiple
-                onChange={handleImageChange}
-                className="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-700 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer"
+                onChange={handleNewImageChange}
+                disabled={totalImages >= 10}
+                className="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-700 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Upload up to 10 property images (Max 10MB each, JPG/PNG/WEBP)
+                {totalImages >= 10 
+                  ? "Maximum 10 images reached. Delete existing images to add new ones."
+                  : `Upload up to ${10 - totalImages} more images (Max 10MB each, JPG/PNG/WEBP)`
+                }
               </p>
               
-              {/* Display multiple image previews in grid */}
-              {imagePreviews.length > 0 && (
+              {newImagePreviews.length > 0 && (
                 <div className="mt-4">
                   <p className="text-sm font-semibold text-gray-700 mb-3">
-                    Image Previews ({imagePreviews.length}):
+                    New Images to Upload ({newImagePreviews.length}):
                   </p>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {imagePreviews.map((preview, index) => (
+                    {newImagePreviews.map((preview, index) => (
                       <div key={index} className="relative group">
                         <img
                           src={preview}
-                          alt={`Property Preview ${index + 1}`}
-                          className="w-full h-40 object-cover rounded-lg border-2 border-gray-300 shadow-md"
+                          alt={`New ${index + 1}`}
+                          className="w-full h-40 object-cover rounded-lg border-2 border-green-400 shadow-md"
                         />
                         <button
                           type="button"
-                          onClick={() => handleRemoveImage(index)}
+                          onClick={() => handleRemoveNewImage(index)}
                           className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded-full hover:bg-red-700 transition shadow-lg opacity-0 group-hover:opacity-100"
-                          title="Remove image"
+                          title="Remove new image"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                             <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                           </svg>
                         </button>
-                        <div className="absolute bottom-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
-                          #{index + 1}
+                        <div className="absolute bottom-2 left-2 bg-green-600 bg-opacity-80 text-white text-xs px-2 py-1 rounded">
+                          NEW #{index + 1}
                         </div>
                       </div>
                     ))}
@@ -537,10 +648,10 @@ export default function ListProperty() {
                 {loading ? (
                   <div className="flex items-center justify-center">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                    Uploading Images & Submitting...
+                    Updating Property...
                   </div>
                 ) : (
-                  '✓ Submit Property Listing'
+                  '✓ Update Property'
                 )}
               </button>
             </div>

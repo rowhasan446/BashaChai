@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import clientPromise from "../../../../../lib/mongodb";
 import { ObjectId } from "mongodb";
 import { v2 as cloudinary } from 'cloudinary';
-import { verifyApiToken, requireRole, createAuthError, checkRateLimit } from '../../../../../lib/auth';
+import { verifyApiToken, checkRateLimit, createAuthError } from '../../../../../lib/auth';
 
 // Validate environment variables
 if (
@@ -20,74 +20,136 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+// Helper function to upload single image to Cloudinary
+async function uploadImageToCloudinary(file, userId) {
+  // Validate file type
+  if (!file.type.startsWith('image/')) {
+    throw new Error(`File ${file.name} is not an image`);
+  }
+
+  // Validate file size (10MB limit)
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  if (file.size > maxSize) {
+    throw new Error(`File ${file.name} exceeds 10MB limit`);
+  }
+
+  // Convert file to buffer
+  const bytes = await file.arrayBuffer();
+  const buffer = Buffer.from(bytes);
+
+  // Upload to Cloudinary
+  const uploadResponse = await new Promise((resolve, reject) => {
+    cloudinary.uploader
+      .upload_stream(
+        {
+          resource_type: 'image',
+          folder: 'BASHACHAI_properties',
+          public_id: `property_${userId}_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          transformation: [
+            { width: 1200, height: 800, crop: 'fill' },
+            { quality: 'auto' },
+            { format: 'auto' },
+          ],
+        },
+        (error, result) => {
+          if (error) {
+            console.error('Cloudinary upload error:', error);
+            reject(new Error(`Cloudinary upload failed: ${error.message}`));
+          } else {
+            resolve(result);
+          }
+        }
+      )
+      .end(buffer);
+  });
+
+  return {
+    url: uploadResponse.secure_url,
+    publicId: uploadResponse.public_id,
+  };
+}
+
+// Helper function to extract public ID from Cloudinary URL
+function extractPublicIdFromUrl(imageUrl) {
+  try {
+    // Match pattern: .../BASHACHAI_properties/property_xxx_xxx.ext
+    const match = imageUrl.match(/\/BASHACHAI_properties\/([^/.]+)/);
+    if (match) {
+      return `BASHACHAI_properties/${match[1]}`;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error extracting public ID:', error);
+    return null;
+  }
+}
+
 // GET - Fetch single property by ID (PUBLIC)
 export async function GET(request, { params }) {
   try {
     checkRateLimit(request);
+    
+    // ✅ FIX: Await params in Next.js 15+
+    const { id } = await params;
+    
+    console.log("🔍 Backend received ID:", id);
+    console.log("📏 ID length:", id?.length);
+    console.log("🔤 ID type:", typeof id);
+
+    if (!id || typeof id !== 'string') {
+      return NextResponse.json({
+        success: false,
+        message: "Property ID is required"
+      }, { status: 400 });
+    }
+
+    // Check if it's a valid hex string of 24 characters
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      console.log("❌ ID failed hex validation");
+      return NextResponse.json({
+        success: false,
+        message: `Invalid property ID format - must be 24 character hex string. Received: ${id}`
+      }, { status: 400 });
+    }
+
+    if (!ObjectId.isValid(id)) {
+      console.log("❌ ID failed ObjectId validation");
+      return NextResponse.json({
+        success: false,
+        message: "Invalid MongoDB ObjectId"
+      }, { status: 400 });
+    }
 
     const client = await clientPromise;
     const db = client.db("BASHACHAI");
     const collection = db.collection("properties");
     
-    // Await params in Next.js 15+
-    const { id } = await params;
-    
-    console.log('🔍 GET /api/properties/[id] - ID:', id);
-
-    // Validate ObjectId format
-    if (!ObjectId.isValid(id)) {
-      return NextResponse.json({
-        success: false,
-        message: "Invalid property ID format"
-      }, { status: 400 });
-    }
+    console.log("🔍 Querying database for ID:", id);
     
     const property = await collection.findOne({ _id: new ObjectId(id) });
     
     if (!property) {
+      console.log("❌ Property not found in database");
       return NextResponse.json({
         success: false,
         message: "Property not found"
       }, { status: 404 });
     }
-    
-    // Serialize the property data
-    const serializedProperty = {
-      ...property,
-      _id: property._id.toString(),
-      createdAt: property.createdAt?.toISOString(),
-      updatedAt: property.updatedAt?.toISOString()
-    };
-    
-    console.log('✅ Property found:', serializedProperty.title);
-    
+
+    console.log(`✅ Fetched property: ${property.title} (ID: ${id})`);
+
     return NextResponse.json({
       success: true,
-      data: serializedProperty
+      data: {
+        ...property,
+        _id: property._id.toString(),
+        createdAt: property.createdAt?.toISOString(),
+        updatedAt: property.updatedAt?.toISOString()
+      }
     }, { status: 200 });
-    
+
   } catch (error) {
     console.error("❌ Error fetching property:", error);
-    console.error("❌ Stack trace:", error.stack);
-    
-    // Handle specific MongoDB errors
-    if (error.name === 'MongoServerError') {
-      return NextResponse.json({
-        success: false,
-        message: "Database error occurred",
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      }, { status: 503 });
-    }
-    
-    // Handle invalid ObjectId errors
-    if (error.name === 'BSONError') {
-      return NextResponse.json({
-        success: false,
-        message: "Invalid property ID",
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      }, { status: 400 });
-    }
-    
     return NextResponse.json({
       success: false,
       message: "Error fetching property",
@@ -96,7 +158,7 @@ export async function GET(request, { params }) {
   }
 }
 
-// PUT - Update property by ID (OWNER OR ADMIN ONLY)
+// PUT - Update property by ID (AUTHENTICATED USERS ONLY)
 export async function PUT(request, { params }) {
   let user = null;
 
@@ -109,24 +171,21 @@ export async function PUT(request, { params }) {
   }
 
   try {
-    const client = await clientPromise;
-    const db = client.db("BASHACHAI");
-    const collection = db.collection("properties");
-    
-    // Await params in Next.js 15+
+    // ✅ FIX: Await params in Next.js 15+
     const { id } = await params;
-    
-    console.log('🔍 PUT /api/properties/[id] - ID:', id, 'User:', user.email);
 
-    // Validate ObjectId format
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({
         success: false,
         message: "Invalid property ID format"
       }, { status: 400 });
     }
+
+    const client = await clientPromise;
+    const db = client.db("BASHACHAI");
+    const collection = db.collection("properties");
     
-    // Check if property exists
+    // Check if property exists and user owns it
     const existingProperty = await collection.findOne({ _id: new ObjectId(id) });
     
     if (!existingProperty) {
@@ -136,10 +195,11 @@ export async function PUT(request, { params }) {
       }, { status: 404 });
     }
 
-    // Check if user owns the property or is admin
-    if (existingProperty.createdBy !== user.userId && user.role !== 'admin') {
-      console.error('❌ Access denied: User', user.userId, 'tried to edit property owned by', existingProperty.createdBy);
-      return createAuthError('Access denied: You can only edit your own properties', 403);
+    if (existingProperty.createdByEmail !== user.email) {
+      return NextResponse.json({
+        success: false,
+        message: "Unauthorized: You can only edit your own properties"
+      }, { status: 403 });
     }
 
     const formData = await request.formData();
@@ -154,171 +214,169 @@ export async function PUT(request, { params }) {
     const category = formData.get('category');
     const type = formData.get('type');
     const size = formData.get('size');
-    const file = formData.get('image');
-    const removeImage = formData.get('removeImage') === 'true';
+    const newImageFiles = formData.getAll('images');
+    const existingImagesStr = formData.get('existingImages');
+    const imagesToDeleteStr = formData.get('imagesToDelete');
 
-    // Build update document
-    const updateDoc = {
-      updatedAt: new Date(),
-      lastUpdatedBy: user.userId
-    };
+    console.log('🔍 PUT /api/properties/[id] - User:', user.email, 'Property ID:', id);
 
-    // Update text fields if provided
-    if (title !== null && title !== undefined) {
-      if (typeof title !== 'string' || title.trim().length < 1) {
-        return NextResponse.json({
-          success: false,
-          message: 'Valid title is required'
-        }, { status: 400 });
-      }
-      updateDoc.title = title.trim();
+    // Validate required fields
+    if (!title || typeof title !== 'string' || title.trim().length < 1) {
+      return NextResponse.json({
+        success: false,
+        message: "Valid title is required"
+      }, { status: 400 });
     }
 
-    if (location !== null && location !== undefined) {
-      if (typeof location !== 'string' || location.trim().length < 1) {
-        return NextResponse.json({
-          success: false,
-          message: 'Valid location is required'
-        }, { status: 400 });
-      }
-      updateDoc.location = location.trim();
+    if (!location || typeof location !== 'string' || location.trim().length < 1) {
+      return NextResponse.json({
+        success: false,
+        message: "Valid location is required"
+      }, { status: 400 });
     }
 
-    if (price !== null && price !== undefined) {
-      updateDoc.price = price;
+    if (!price) {
+      return NextResponse.json({
+        success: false,
+        message: "Price is required"
+      }, { status: 400 });
     }
 
-    if (beds !== null && beds !== undefined) {
-      updateDoc.beds = parseInt(beds) || 0;
+    if (!description || typeof description !== 'string' || description.trim().length < 1) {
+      return NextResponse.json({
+        success: false,
+        message: "Valid description is required"
+      }, { status: 400 });
     }
 
-    if (baths !== null && baths !== undefined) {
-      updateDoc.baths = parseInt(baths) || 0;
-    }
+    // Parse existing images and images to delete
+    const existingImages = existingImagesStr ? JSON.parse(existingImagesStr) : [];
+    const imagesToDelete = imagesToDeleteStr ? JSON.parse(imagesToDeleteStr) : [];
 
-    if (description !== null && description !== undefined) {
-      if (typeof description !== 'string' || description.trim().length < 1) {
-        return NextResponse.json({
-          success: false,
-          message: 'Valid description is required'
-        }, { status: 400 });
-      }
-      updateDoc.description = description.trim();
-    }
+    console.log('📊 Image management:', {
+      existingImagesCount: existingImages.length,
+      imagesToDeleteCount: imagesToDelete.length,
+      newImagesCount: newImageFiles.filter(f => f && f.size > 0).length
+    });
 
-    if (category !== null && category !== undefined) {
-      updateDoc.category = category;
-    }
-
-    if (type !== null && type !== undefined) {
-      updateDoc.type = type;
-    }
-
-    if (size !== null && size !== undefined) {
-      updateDoc.size = size;
-    }
-
-    // Handle image removal
-    if (removeImage && existingProperty.imagePublicId) {
-      try {
-        await cloudinary.uploader.destroy(existingProperty.imagePublicId);
-        console.log('✅ Old image deleted from Cloudinary:', existingProperty.imagePublicId);
-      } catch (deleteError) {
-        console.error('❌ Error deleting old image:', deleteError);
-      }
-      updateDoc.image = '';
-      updateDoc.imagePublicId = '';
-    }
-
-    // Handle new image upload
-    if (file && file.size > 0) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        return NextResponse.json({
-          success: false,
-          message: 'Only image files are allowed'
-        }, { status: 400 });
-      }
-
-      // Validate file size (10MB limit)
-      const maxSize = 10 * 1024 * 1024;
-      if (file.size > maxSize) {
-        return NextResponse.json({
-          success: false,
-          message: 'File size must be less than 10MB'
-        }, { status: 400 });
-      }
-
-      try {
-        // Delete old image if exists
-        if (existingProperty.imagePublicId) {
+    // Delete old images from Cloudinary
+    if (imagesToDelete.length > 0) {
+      console.log('🧹 Deleting old images from Cloudinary...');
+      for (const imageUrl of imagesToDelete) {
+        const publicId = extractPublicIdFromUrl(imageUrl);
+        if (publicId) {
           try {
-            await cloudinary.uploader.destroy(existingProperty.imagePublicId);
-            console.log('✅ Old image replaced:', existingProperty.imagePublicId);
-          } catch (deleteError) {
-            console.error('❌ Error deleting old image:', deleteError);
+            await cloudinary.uploader.destroy(publicId);
+            console.log(`✅ Deleted image from Cloudinary: ${publicId}`);
+          } catch (error) {
+            console.error(`❌ Failed to delete image: ${publicId}`, error);
           }
         }
-
-        // Convert file to buffer for Cloudinary upload
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-
-        // Upload to Cloudinary
-        const uploadResponse = await new Promise((resolve, reject) => {
-          cloudinary.uploader
-            .upload_stream(
-              {
-                resource_type: 'image',
-                folder: 'BASHACHAI_properties',
-                public_id: `property_${user.userId}_${Date.now()}`,
-                transformation: [
-                  { width: 1200, height: 800, crop: 'fill' },
-                  { quality: 'auto' },
-                  { format: 'auto' },
-                ],
-              },
-              (error, result) => {
-                if (error) {
-                  console.error('❌ Cloudinary upload error:', error);
-                  reject(new Error(`Cloudinary upload failed: ${error.message}`));
-                } else {
-                  resolve(result);
-                }
-              }
-            )
-            .end(buffer);
-        });
-
-        updateDoc.image = uploadResponse.secure_url;
-        updateDoc.imagePublicId = uploadResponse.public_id;
-
-        console.log('✅ New image uploaded to Cloudinary:', uploadResponse.public_id);
-      } catch (uploadError) {
-        console.error('❌ Error uploading to Cloudinary:', uploadError);
-        return NextResponse.json({
-          success: false,
-          message: 'Failed to upload image',
-          error: uploadError.message
-        }, { status: 500 });
       }
     }
+
+    // Upload new images
+    let newImageUrls = [];
+    let newImagePublicIds = [];
+
+    if (newImageFiles && newImageFiles.length > 0) {
+      const validImageFiles = newImageFiles.filter(file => file && file.size > 0);
+      
+      if (validImageFiles.length > 0) {
+        const maxImages = 10;
+        const totalImages = existingImages.length + validImageFiles.length;
+        
+        if (totalImages > maxImages) {
+          return NextResponse.json({
+            success: false,
+            message: `Maximum ${maxImages} images allowed. You have ${existingImages.length} existing images.`
+          }, { status: 400 });
+        }
+
+        try {
+          console.log(`📤 Uploading ${validImageFiles.length} new images to Cloudinary...`);
+          
+          const uploadPromises = validImageFiles.map(file => 
+            uploadImageToCloudinary(file, user.userId)
+          );
+
+          const uploadResults = await Promise.all(uploadPromises);
+          newImageUrls = uploadResults.map(result => result.url);
+          newImagePublicIds = uploadResults.map(result => result.publicId);
+
+          console.log(`✅ Successfully uploaded ${newImageUrls.length} new images`);
+        } catch (uploadError) {
+          console.error('❌ Error uploading new images:', uploadError);
+          
+          // Cleanup newly uploaded images if error occurs
+          if (newImagePublicIds.length > 0) {
+            console.log('🧹 Cleaning up newly uploaded images due to error...');
+            try {
+              await Promise.all(
+                newImagePublicIds.map(publicId => 
+                  cloudinary.uploader.destroy(publicId)
+                )
+              );
+            } catch (cleanupError) {
+              console.error('❌ Error cleaning up images:', cleanupError);
+            }
+          }
+
+          return NextResponse.json({
+            success: false,
+            message: 'Failed to upload new images',
+            error: uploadError.message
+          }, { status: 500 });
+        }
+      }
+    }
+
+    // Combine existing and new images
+    const allImages = [...existingImages, ...newImageUrls];
     
+    // Get public IDs for existing images that are kept
+    const keptExistingPublicIds = existingImages.map(url => extractPublicIdFromUrl(url)).filter(Boolean);
+    const allImagePublicIds = [...keptExistingPublicIds, ...newImagePublicIds];
+
+    console.log('📸 Final image count:', {
+      total: allImages.length,
+      existing: existingImages.length,
+      new: newImageUrls.length
+    });
+
+    // Prepare update document
+    const updateDoc = {
+      title: title.trim(),
+      location: location.trim(),
+      price: price,
+      beds: parseInt(beds) || 0,
+      baths: parseInt(baths) || 0,
+      description: description.trim(),
+      category: category || "Flat to Rent",
+      type: type || "rent",
+      images: allImages,
+      imagePublicIds: allImagePublicIds,
+      image: allImages[0] || '',
+      imagePublicId: allImagePublicIds[0] || '',
+      size: size || "",
+      updatedAt: new Date()
+    };
+    
+    // Update property in database
     const result = await collection.updateOne(
       { _id: new ObjectId(id) },
       { $set: updateDoc }
     );
-    
+
     if (result.matchedCount === 0) {
       return NextResponse.json({
         success: false,
         message: "Property not found"
       }, { status: 404 });
     }
-    
-    // Fetch the updated property
-    const updatedProperty = await collection.findOne({ _id: new ObjectId(id) });
-    
+
+    console.log(`✅ Property updated successfully: ${updateDoc.title} (ID: ${id})`);
+
     // Create audit log (non-blocking)
     setImmediate(async () => {
       try {
@@ -327,8 +385,12 @@ export async function PUT(request, { params }) {
           propertyId: id,
           userId: user.userId,
           userEmail: user.email,
-          propertyTitle: updatedProperty.title,
-          updatedFields: Object.keys(updateDoc),
+          propertyTitle: updateDoc.title,
+          changes: {
+            imagesAdded: newImageUrls.length,
+            imagesDeleted: imagesToDelete.length,
+            totalImages: allImages.length
+          },
           timestamp: new Date(),
           ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0] || 
                     request.headers.get('x-real-ip') || 
@@ -338,51 +400,20 @@ export async function PUT(request, { params }) {
         console.error('Audit log error:', auditError);
       }
     });
-
-    console.log('✅ Property updated successfully');
     
     return NextResponse.json({
       success: true,
       message: "Property updated successfully",
-      modifiedCount: result.modifiedCount,
-      data: {
-        ...updatedProperty,
-        _id: updatedProperty._id.toString(),
-        createdAt: updatedProperty.createdAt?.toISOString(),
-        updatedAt: updatedProperty.updatedAt?.toISOString()
+      data: { 
+        _id: id, 
+        ...updateDoc,
+        updatedAt: updateDoc.updatedAt.toISOString()
       }
     }, { status: 200 });
     
   } catch (error) {
     console.error("❌ Error updating property:", error);
     console.error("❌ Stack trace:", error.stack);
-    
-    // Handle specific MongoDB errors
-    if (error.name === 'MongoServerError') {
-      return NextResponse.json({
-        success: false,
-        message: "Database error occurred",
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      }, { status: 503 });
-    }
-    
-    // Handle invalid ObjectId errors
-    if (error.name === 'BSONError') {
-      return NextResponse.json({
-        success: false,
-        message: "Invalid property ID",
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      }, { status: 400 });
-    }
-    
-    // Handle JSON parsing errors
-    if (error instanceof SyntaxError) {
-      return NextResponse.json({
-        success: false,
-        message: "Invalid JSON data",
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      }, { status: 400 });
-    }
     
     return NextResponse.json({
       success: false,
@@ -392,7 +423,7 @@ export async function PUT(request, { params }) {
   }
 }
 
-// DELETE - Delete property by ID (OWNER OR ADMIN ONLY)
+// DELETE - Delete property by ID (AUTHENTICATED USERS ONLY)
 export async function DELETE(request, { params }) {
   let user = null;
 
@@ -405,59 +436,75 @@ export async function DELETE(request, { params }) {
   }
 
   try {
-    const client = await clientPromise;
-    const db = client.db("BASHACHAI");
-    const collection = db.collection("properties");
-    
-    // Await params in Next.js 15+
+    // ✅ FIX: Await params in Next.js 15+
     const { id } = await params;
-    
-    console.log('🔍 DELETE /api/properties/[id] - ID:', id, 'User:', user.email);
 
-    // Validate ObjectId format
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({
         success: false,
         message: "Invalid property ID format"
       }, { status: 400 });
     }
+
+    const client = await clientPromise;
+    const db = client.db("BASHACHAI");
+    const collection = db.collection("properties");
     
-    // Check if property exists
-    const existingProperty = await collection.findOne({ _id: new ObjectId(id) });
+    // Find property and verify ownership
+    const property = await collection.findOne({ _id: new ObjectId(id) });
     
-    if (!existingProperty) {
+    if (!property) {
       return NextResponse.json({
         success: false,
         message: "Property not found"
       }, { status: 404 });
     }
 
-    // Check if user owns the property or is admin
-    if (existingProperty.createdBy !== user.userId && user.role !== 'admin') {
-      console.error('❌ Access denied: User', user.userId, 'tried to delete property owned by', existingProperty.createdBy);
-      return createAuthError('Access denied: You can only delete your own properties', 403);
+    if (property.createdByEmail !== user.email) {
+      return NextResponse.json({
+        success: false,
+        message: "Unauthorized: You can only delete your own properties"
+      }, { status: 403 });
     }
 
-    // Delete image from Cloudinary if exists
-    if (existingProperty.imagePublicId) {
-      try {
-        await cloudinary.uploader.destroy(existingProperty.imagePublicId);
-        console.log('✅ Image deleted from Cloudinary:', existingProperty.imagePublicId);
-      } catch (deleteError) {
-        console.error('❌ Error deleting image from Cloudinary:', deleteError);
-        // Continue with property deletion even if image deletion fails
+    console.log('🔍 DELETE /api/properties/[id] - User:', user.email, 'Property:', property.title);
+
+    // Delete all images from Cloudinary
+    const imagePublicIds = property.imagePublicIds || [];
+    
+    if (imagePublicIds.length > 0) {
+      console.log(`🧹 Deleting ${imagePublicIds.length} images from Cloudinary...`);
+      let deletedCount = 0;
+      let failedCount = 0;
+
+      for (const publicId of imagePublicIds) {
+        try {
+          await cloudinary.uploader.destroy(publicId);
+          deletedCount++;
+          console.log(`✅ Deleted image: ${publicId}`);
+        } catch (error) {
+          failedCount++;
+          console.error(`❌ Failed to delete image: ${publicId}`, error);
+        }
       }
+
+      console.log(`📊 Image deletion summary: ${deletedCount} deleted, ${failedCount} failed`);
+    } else {
+      console.log('ℹ️ No images to delete from Cloudinary');
     }
-    
-    const result = await collection.deleteOne({ _id: new ObjectId(id) });
-    
-    if (result.deletedCount === 0) {
+
+    // Delete property from database
+    const deleteResult = await collection.deleteOne({ _id: new ObjectId(id) });
+
+    if (deleteResult.deletedCount === 0) {
       return NextResponse.json({
         success: false,
         message: "Failed to delete property"
       }, { status: 500 });
     }
-    
+
+    console.log(`✅ Property deleted successfully: ${property.title} (ID: ${id})`);
+
     // Create audit log (non-blocking)
     setImmediate(async () => {
       try {
@@ -466,10 +513,9 @@ export async function DELETE(request, { params }) {
           propertyId: id,
           userId: user.userId,
           userEmail: user.email,
-          deletedPropertyTitle: existingProperty.title,
-          deletedPropertyLocation: existingProperty.location,
-          hadImage: !!existingProperty.imagePublicId,
-          deletedImagePublicId: existingProperty.imagePublicId || null,
+          propertyTitle: property.title,
+          propertyLocation: property.location,
+          imagesDeleted: imagePublicIds.length,
           timestamp: new Date(),
           ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0] || 
                     request.headers.get('x-real-ip') || 
@@ -480,39 +526,19 @@ export async function DELETE(request, { params }) {
       }
     });
 
-    console.log('✅ Property deleted successfully');
-    
     return NextResponse.json({
       success: true,
       message: "Property deleted successfully",
-      deletedProperty: {
-        _id: existingProperty._id.toString(),
-        title: existingProperty.title,
-        location: existingProperty.location
+      data: {
+        deletedPropertyId: id,
+        deletedPropertyTitle: property.title,
+        imagesDeleted: imagePublicIds.length
       }
     }, { status: 200 });
-    
+
   } catch (error) {
     console.error("❌ Error deleting property:", error);
     console.error("❌ Stack trace:", error.stack);
-    
-    // Handle specific MongoDB errors
-    if (error.name === 'MongoServerError') {
-      return NextResponse.json({
-        success: false,
-        message: "Database error occurred",
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      }, { status: 503 });
-    }
-    
-    // Handle invalid ObjectId errors
-    if (error.name === 'BSONError') {
-      return NextResponse.json({
-        success: false,
-        message: "Invalid property ID",
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      }, { status: 400 });
-    }
     
     return NextResponse.json({
       success: false,
