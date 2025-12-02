@@ -12,6 +12,7 @@ export default function ListProperty() {
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   
+  // Arrays for multiple images
   const [imageFiles, setImageFiles] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
   
@@ -61,6 +62,7 @@ export default function ListProperty() {
     }));
   };
 
+  // Handle multiple image selection
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
     
@@ -132,6 +134,7 @@ export default function ListProperty() {
     e.target.value = null;
   };
 
+  // Remove individual image by index
   const handleRemoveImage = (index) => {
     setImageFiles(prev => prev.filter((_, i) => i !== index));
     setImagePreviews(prev => prev.filter((_, i) => i !== index));
@@ -223,8 +226,8 @@ export default function ListProperty() {
       formDataToSend.append('type', formData.purpose);
       formDataToSend.append('size', formData.size || '');
       
-      // Append all images (backend expects 'images' field)
-      imageFiles.forEach((file) => {
+      // Append all images
+      imageFiles.forEach((file, index) => {
         formDataToSend.append('images', file);
       });
 
@@ -361,6 +364,7 @@ export default function ListProperty() {
               />
             </div>
 
+            {/* ✅ UPDATED: Property Type Dropdown with Male and Female Hostels */}
             <div>
               <label className="text-sm font-semibold text-gray-700">Property Type *</label>
               <select
@@ -374,7 +378,8 @@ export default function ListProperty() {
                 <option value="Single Room to Rent">Single Room to Rent</option>
                 <option value="Sublet Room to Rent">Sublet Room to Rent</option>
                 <option value="Office Space to Rent">Office Space to Rent</option>
-                <option value="Girls Hostel to Rent">Girls Hostel to Rent</option>
+                <option value="Male Student Hostel">Male Student Hostel</option>
+                <option value="Female Student Hostel">Female Student Hostel</option>
               </select>
             </div>
 
@@ -469,6 +474,7 @@ export default function ListProperty() {
               ></textarea>
             </div>
 
+            {/* Multiple image upload */}
             <div className="col-span-2">
               <label className="text-sm font-semibold text-gray-700">
                 Property Images * ({imageFiles.length}/10 selected)
@@ -484,6 +490,7 @@ export default function ListProperty() {
                 Upload up to 10 property images (Max 10MB each, JPG/PNG/WEBP)
               </p>
               
+              {/* Display multiple image previews in grid */}
               {imagePreviews.length > 0 && (
                 <div className="mt-4">
                   <p className="text-sm font-semibold text-gray-700 mb-3">
