@@ -43,6 +43,12 @@ export default function HomePage() {
   const [favorites, setFavorites] = useState([]);
   const dropdownRef = useRef(null);
 
+  // ✅ NEW: Student Hostel States
+  const [hostels, setHostels] = useState([]);
+  const [hostelFilter, setHostelFilter] = useState("all"); // "all", "male", "female"
+  const [hostelsLoading, setHostelsLoading] = useState(true);
+  const [hostelsError, setHostelsError] = useState(null);
+
   // Load favorites from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -91,6 +97,43 @@ export default function HomePage() {
 
     fetchProperties();
   }, []);
+
+  // ✅ NEW: Fetch Student Hostels
+  useEffect(() => {
+    async function fetchHostels() {
+      try {
+        setHostelsLoading(true);
+        const response = await fetch('/api/properties');
+        const result = await response.json();
+
+        if (result.success) {
+          // Filter only hostel properties
+          const hostelProperties = result.data.filter(
+            prop => prop.category === "Male Student Hostel" || prop.category === "Female Student Hostel"
+          );
+          setHostels(hostelProperties);
+          console.log('✅ Loaded hostels:', hostelProperties.length);
+        } else {
+          setHostelsError(result.message || 'Failed to load hostels');
+        }
+      } catch (error) {
+        console.error('Error fetching hostels:', error);
+        setHostelsError('Failed to load hostels');
+      } finally {
+        setHostelsLoading(false);
+      }
+    }
+
+    fetchHostels();
+  }, []);
+
+  // ✅ NEW: Filter hostels based on selected filter
+  const filteredHostels = hostels.filter(hostel => {
+    if (hostelFilter === "all") return true;
+    if (hostelFilter === "male") return hostel.category === "Male Student Hostel";
+    if (hostelFilter === "female") return hostel.category === "Female Student Hostel";
+    return true;
+  });
 
   // Close modal when clicking outside
   useEffect(() => {
@@ -142,9 +185,6 @@ export default function HomePage() {
     logOut()
       .then(() => {
         console.log('User signed out successfully');
-        // Clear favorites on logout (optional)
-        // setFavorites([]);
-        // localStorage.removeItem('favorites');
       })
       .catch((error) => console.error('Error signing out:', error));
   };
@@ -167,7 +207,7 @@ export default function HomePage() {
     setProfileDropdownOpen(!profileDropdownOpen);
   };
 
-  // Toggle favorite function - stores full property object
+  // Toggle favorite function
   const toggleFavorite = (property) => {
     if (!authUser) {
       alert('Please sign in to add favorites!');
@@ -176,10 +216,19 @@ export default function HomePage() {
     }
 
     setFavorites((prevFavorites) => {
-      if (prevFavorites.includes(propertyId)) {
-        return prevFavorites.filter(id => id !== propertyId);
+      let updatedFavorites;
+      
+      // Check if property already in favorites
+      const existingIndex = prevFavorites.findIndex(fav => fav._id === property._id);
+      
+      if (existingIndex !== -1) {
+        // Remove from favorites
+        updatedFavorites = prevFavorites.filter(fav => fav._id !== property._id);
+        console.log('❌ Removed from favorites:', property.title);
       } else {
-        return [...prevFavorites, propertyId];
+        // Add to favorites
+        updatedFavorites = [...prevFavorites, property];
+        console.log('✅ Added to favorites:', property.title);
       }
 
       // Save to localStorage
@@ -465,6 +514,87 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ✅ NEW: Student Hostels Section */}
+      <section className="py-12 max-w-6xl mx-auto">
+        <div className="text-center mb-10">
+          <h2 className="text-3xl font-bold text-gray-900 mb-3">
+            Student <span className="text-purple-700">Hostels</span>
+          </h2>
+          <p className="text-gray-600 mb-6">Find comfortable and affordable hostel accommodation</p>
+          
+          {/* Gender Filter Buttons */}
+          <div className="inline-flex space-x-4">
+            <button
+              onClick={() => setHostelFilter("all")}
+              className={`px-6 py-2 rounded-md font-semibold transition ${
+                hostelFilter === "all"
+                  ? "bg-purple-700 text-white shadow-lg"
+                  : "border border-purple-700 text-purple-700 hover:bg-purple-50"
+              }`}
+            >
+              All Hostels
+            </button>
+            <button
+              onClick={() => setHostelFilter("male")}
+              className={`px-6 py-2 rounded-md font-semibold transition ${
+                hostelFilter === "male"
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "border border-blue-600 text-blue-600 hover:bg-blue-50"
+              }`}
+            >
+              <svg className="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              Male Hostels
+            </button>
+            <button
+              onClick={() => setHostelFilter("female")}
+              className={`px-6 py-2 rounded-md font-semibold transition ${
+                hostelFilter === "female"
+                  ? "bg-pink-600 text-white shadow-lg"
+                  : "border border-pink-600 text-pink-600 hover:bg-pink-50"
+              }`}
+            >
+              <svg className="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              Female Hostels
+            </button>
+          </div>
+        </div>
+
+        {/* Hostels Display */}
+        {hostelsLoading ? (
+          <div className="py-12 text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-700"></div>
+            <p className="mt-4 text-gray-600">Loading hostels...</p>
+          </div>
+        ) : hostelsError ? (
+          <div className="py-12 text-center">
+            <p className="text-red-600">{hostelsError}</p>
+          </div>
+        ) : filteredHostels.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {filteredHostels.slice(0, 8).map((hostel) => (
+              <HostelCard
+                key={hostel._id}
+                hostel={hostel}
+                onViewDetails={() => openModal(hostel)}
+                onToggleFavorite={() => toggleFavorite(hostel)}
+                isFavorited={isFavorited(hostel._id)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="py-12 text-center bg-white rounded-lg shadow-md">
+            <svg className="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+            <p className="text-gray-600 text-lg">No {hostelFilter === "all" ? "" : hostelFilter} hostels available at the moment</p>
+          </div>
+        )}
+      </section>
+
       {/* Discover Cities */}
       <section className="py-12 max-w-6xl mx-auto">
         <h2 className="text-center text-2xl font-semibold mb-8">
@@ -562,7 +692,7 @@ function ListingCard({ property, onViewDetails, onToggleFavorite, isFavorited })
   const { title, location, price, beds, baths, image, images, _id } = property;
   const fallbackImage = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80";
   
-  // ✅ Use first image from images array, fallback to single image or default
+  // Use first image from images array, fallback to single image or default
   const displayImage = (images && images.length > 0) ? images[0] : (image || fallbackImage);
   
   return (
@@ -588,7 +718,6 @@ function ListingCard({ property, onViewDetails, onToggleFavorite, isFavorited })
 
       <div className="relative">
         <img src={displayImage} alt={title} className="w-full h-32 object-cover rounded-xl mb-3" />
-        {/* ✅ Show image count badge if multiple images */}
         {images && images.length > 1 && (
           <div className="absolute bottom-5 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded-full flex items-center">
             <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -615,41 +744,109 @@ function ListingCard({ property, onViewDetails, onToggleFavorite, isFavorited })
   );
 }
 
-// ✅ UPDATED: PropertyModal with Image Carousel
+// ✅ NEW: Hostel Card Component (similar to ListingCard but with gender badge)
+function HostelCard({ hostel, onViewDetails, onToggleFavorite, isFavorited }) {
+  const { title, location, price, beds, baths, image, images, _id, category } = hostel;
+  const fallbackImage = "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80";
+  
+  const displayImage = (images && images.length > 0) ? images[0] : (image || fallbackImage);
+  const isMale = category === "Male Student Hostel";
+  
+  return (
+    <div className="rounded-xl shadow-md bg-white overflow-hidden hover:shadow-xl transform hover:-translate-y-2 transition duration-300 p-4 flex flex-col relative">
+      {/* Gender Badge */}
+      <div className={`absolute top-6 left-6 z-10 px-3 py-1 rounded-full text-xs font-bold ${
+        isMale ? 'bg-blue-500 text-white' : 'bg-pink-500 text-white'
+      }`}>
+        {isMale ? '♂ Male' : '♀ Female'}
+      </div>
+
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleFavorite();
+        }}
+        className="absolute top-6 right-6 z-10 bg-white rounded-full p-2 shadow-lg hover:scale-110 transition-transform"
+        aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
+      >
+        {isFavorited ? (
+          <svg className="w-6 h-6 text-red-500 fill-current" viewBox="0 0 24 24">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+        ) : (
+          <svg className="w-6 h-6 text-gray-400 hover:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+          </svg>
+        )}
+      </button>
+
+      <div className="relative">
+        <img src={displayImage} alt={title} className="w-full h-32 object-cover rounded-xl mb-3" />
+        {images && images.length > 1 && (
+          <div className="absolute bottom-5 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded-full flex items-center">
+            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            {images.length}
+          </div>
+        )}
+      </div>
+
+      <div className="text-black font-semibold text-lg line-clamp-2">{title}</div>
+      <div className="text-black text-sm mt-1 flex items-center">
+        <svg className="w-4 h-4 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        {location}
+      </div>
+      <div className="text-black text-sm mt-1">
+        {beds > 0 && `${beds} Beds`} {beds > 0 && baths > 0 && " • "} {baths > 0 && `${baths} Baths`}
+      </div>
+      <div className="text-black font-bold text-xl mt-2">{price}</div>
+      <button
+        onClick={onViewDetails}
+        className="mt-4 px-4 py-2 rounded-md bg-purple-700 text-white hover:bg-purple-600 shadow hover:shadow-lg transition w-full"
+      >
+        View Details
+      </button>
+    </div>
+  );
+}
+
 function PropertyModal({ property, onClose }) {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const fallbackImage = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80";
   
-  // ✅ Get images array - support both new 'images' array and old single 'image' field
+  // Get images array - support both new 'images' array and old single 'image' field
   const propertyImages = property.images && property.images.length > 0 
     ? property.images 
     : property.image 
       ? [property.image] 
       : [fallbackImage];
 
-  // ✅ State for image carousel
+  // State for image carousel (ONLY DECLARE ONCE)
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // ✅ Navigate to previous image
+  // Navigate to previous image
   const previousImage = () => {
     setCurrentImageIndex((prev) => 
       prev === 0 ? propertyImages.length - 1 : prev - 1
     );
   };
 
-  // ✅ Navigate to next image
+  // Navigate to next image
   const nextImage = () => {
     setCurrentImageIndex((prev) => 
       prev === propertyImages.length - 1 ? 0 : prev + 1
     );
   };
 
-  // ✅ Go to specific image
+  // Go to specific image
   const goToImage = (index) => {
     setCurrentImageIndex(index);
   };
 
-  // ✅ Keyboard navigation
+  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'ArrowLeft') previousImage();
@@ -682,7 +879,7 @@ function PropertyModal({ property, onClose }) {
           </button>
         </div>
 
-        {/* ✅ UPDATED: Image Carousel */}
+        {/* Image Carousel */}
         <div className="relative w-full h-80 overflow-hidden bg-gray-900">
           {/* Current Image */}
           <img
@@ -691,7 +888,7 @@ function PropertyModal({ property, onClose }) {
             className="w-full h-full object-contain transition-opacity duration-300"
           />
 
-          {/* ✅ Navigation Buttons - Only show if multiple images */}
+          {/* Navigation Buttons - Only show if multiple images */}
           {propertyImages.length > 1 && (
             <>
               <button
@@ -714,12 +911,12 @@ function PropertyModal({ property, onClose }) {
                 </svg>
               </button>
 
-              {/* ✅ Image Counter */}
+              {/* Image Counter */}
               <div className="absolute top-4 right-4 bg-black bg-opacity-70 text-white px-3 py-1 rounded-full text-sm font-semibold">
                 {currentImageIndex + 1} / {propertyImages.length}
               </div>
 
-              {/* ✅ Dot Indicators */}
+              {/* Dot Indicators */}
               <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2">
                 {propertyImages.map((_, index) => (
                   <button
@@ -738,7 +935,7 @@ function PropertyModal({ property, onClose }) {
           )}
         </div>
 
-        {/* ✅ Thumbnail Gallery - Only show if multiple images */}
+        {/* Thumbnail Gallery - Only show if multiple images */}
         {propertyImages.length > 1 && (
           <div className="px-6 pt-4 pb-2">
             <div className="flex gap-2 overflow-x-auto pb-2">

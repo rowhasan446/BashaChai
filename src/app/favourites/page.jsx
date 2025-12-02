@@ -430,7 +430,7 @@ function FavoritePropertyCard({ property, onRemove, onViewDetails }) {
   );
 }
 
-// Reuse the PropertyModal from your HomePage (copy the entire PropertyModal function here)
+// PropertyModal Component
 function PropertyModal({ property, onClose }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const fallbackImage = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80";
@@ -530,6 +530,7 @@ function PropertyModal({ property, onClose }) {
                         ? 'w-8 h-3 bg-white'
                         : 'w-3 h-3 bg-white bg-opacity-50 hover:bg-opacity-75'
                     } rounded-full`}
+                    aria-label={`Go to image ${index + 1}`}
                   />
                 ))}
               </div>
@@ -537,7 +538,7 @@ function PropertyModal({ property, onClose }) {
           )}
         </div>
 
-        {/* Rest of modal content - same as HomePage */}
+        {/* Property Info (same as before) */}
         <div className="p-6 space-y-6">
           <div className="border-b border-gray-200 pb-4">
             <h3 className="text-3xl font-bold text-gray-900 mb-2">{property.title}</h3>
