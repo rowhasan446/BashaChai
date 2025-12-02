@@ -94,7 +94,7 @@ export async function POST(request) {
     const type = formData.get('type');
     const size = formData.get('size');
     
-    // ✅ UPDATED: Get all images using getAll()
+    // Get all images using getAll()
     const imageFiles = formData.getAll('images');
 
     console.log('🔍 POST /api/properties - User:', user.email);
@@ -129,17 +129,17 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // ✅ UPDATED: Arrays to store multiple image URLs and public IDs
+    // Arrays to store multiple image URLs and public IDs
     let imageUrls = [];
     let imagePublicIds = [];
 
-    // ✅ UPDATED: Upload multiple images to Cloudinary
+    // Upload multiple images to Cloudinary
     if (imageFiles && imageFiles.length > 0) {
       // Filter out empty files
       const validImageFiles = imageFiles.filter(file => file && file.size > 0);
       
       if (validImageFiles.length > 0) {
-        // Limit number of images (optional, e.g., max 10 images)
+        // Limit number of images (max 10 images)
         const maxImages = 10;
         if (validImageFiles.length > maxImages) {
           return NextResponse.json({
@@ -151,7 +151,7 @@ export async function POST(request) {
         try {
           console.log(`📤 Uploading ${validImageFiles.length} images to Cloudinary...`);
           
-          // ✅ Use Promise.all to upload all images concurrently
+          // Use Promise.all to upload all images concurrently
           const uploadPromises = validImageFiles.map(file => 
             uploadImageToCloudinary(file, user.userId)
           );
@@ -194,7 +194,7 @@ export async function POST(request) {
     const db = client.db("BASHACHAI");
     const collection = db.collection("properties");
     
-    // ✅ UPDATED: Property document with arrays for images
+    // Property document with arrays for images
     const propertyDoc = {
       title: title.trim(),
       location: location.trim(),
@@ -205,7 +205,7 @@ export async function POST(request) {
       category: category || "Flat to Rent",
       type: type || "rent",
       
-      // ✅ UPDATED: Store arrays of images
+      // Store arrays of images
       images: imageUrls,
       imagePublicIds: imagePublicIds,
       

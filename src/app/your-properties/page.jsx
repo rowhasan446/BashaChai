@@ -29,7 +29,8 @@ export default function YourProperties() {
       setLoading(true);
       const token = await user.getIdToken();
       
-      // Get user ID from token or database
+      console.log('🔍 Fetching properties for user:', user.email);
+      
       const response = await fetch(`/api/properties`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -43,12 +44,15 @@ export default function YourProperties() {
         const userProperties = result.data.filter(
           prop => prop.createdByEmail === user.email
         );
+        
+        console.log('📊 Fetched properties:', userProperties.length);
+        
         setProperties(userProperties);
       } else {
         setError(result.message || 'Failed to load properties');
       }
     } catch (error) {
-      console.error('Error fetching properties:', error);
+      console.error('❌ Error fetching properties:', error);
       setError('Failed to load properties');
     } finally {
       setLoading(false);
@@ -71,6 +75,8 @@ export default function YourProperties() {
       try {
         setDeleting(propertyId);
         const token = await user.getIdToken();
+
+        console.log('🗑️ Deleting property:', propertyId);
 
         const response = await fetch(`/api/properties/${propertyId}`, {
           method: 'DELETE',
@@ -98,7 +104,7 @@ export default function YourProperties() {
           throw new Error(data.message || 'Failed to delete property');
         }
       } catch (error) {
-        console.error('Error deleting property:', error);
+        console.error('❌ Error deleting property:', error);
         Swal.fire({
           toast: true,
           position: 'top-end',
@@ -282,6 +288,7 @@ function PropertyCard({ property, onDelete, isDeleting }) {
               Edit
             </button>
           </Link>
+          
           <button
             onClick={() => onDelete(property._id, property.title)}
             disabled={isDeleting}
