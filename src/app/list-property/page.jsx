@@ -323,9 +323,7 @@ export default function ListProperty() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200">
         <nav className="container mx-auto flex items-center px-6 py-4">
-          <Link href="/" className="text-2xl font-bold text-black">
-            BashaChai.com
-          </Link>
+          
           <div className="ml-auto flex items-center gap-4">
             <span className="text-sm text-gray-600 hidden md:block">
               Welcome, <span className="font-semibold">{user.email}</span>
