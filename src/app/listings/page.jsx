@@ -9,7 +9,7 @@ const navLinks = [
   { name: "Home", href: "/" },
   { name: "To Rent", href: "/to-rent" },
   { name: "For Sale", href: "/for-sale" },
-  { name: "Properties", href: "/properties" },
+  { name: "Properties", href: "/listings" },
   { name: "Inquiry", href: "/inquiry" },
   { name: "Contact", href: "/contact" },
   { name: "Blog", href: "/blog" },
@@ -27,14 +27,12 @@ export default function ListingsPage() {
   const [favorites, setFavorites] = useState([]);
   const dropdownRef = useRef(null);
 
-  // Filter and Search States
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all"); // rent, sale, all
+  const [typeFilter, setTypeFilter] = useState("all");
   const [priceFilter, setPriceFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
 
-  // Load favorites from localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -50,7 +48,6 @@ export default function ListingsPage() {
     }
   }, []);
 
-  // Fetch all properties
   useEffect(() => {
     async function fetchProperties() {
       try {
@@ -74,7 +71,6 @@ export default function ListingsPage() {
     fetchProperties();
   }, []);
 
-  // Close profile dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -91,7 +87,6 @@ export default function ListingsPage() {
     };
   }, [profileDropdownOpen]);
 
-  // Close modal on Escape key
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape') {
@@ -171,22 +166,16 @@ export default function ListingsPage() {
     return favorites.some(fav => fav._id === propertyId);
   };
 
-  // Filter and Sort Logic
   const filteredAndSortedProperties = properties
     .filter((property) => {
-      // Search filter
       const matchesSearch = 
         property.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         property.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         property.description?.toLowerCase().includes(searchQuery.toLowerCase());
 
-      // Category filter
       const matchesCategory = categoryFilter === "all" || property.category === categoryFilter;
-
-      // Type filter (rent/sale)
       const matchesType = typeFilter === "all" || property.type === typeFilter;
 
-      // Price filter
       let matchesPrice = true;
       if (priceFilter !== "all") {
         const priceValue = parseInt(property.price?.replace(/[^0-9]/g, '') || 0);
@@ -225,10 +214,6 @@ export default function ListingsPage() {
 
   return (
     <main className="font-sans bg-gray-50 text-black min-h-screen">
-      {/* Navbar */}
-     ?
-
-      {/* Page Header */}
       <section className="bg-gradient-to-r from-purple-700 to-purple-900 text-white py-12">
         <div className="max-w-7xl mx-auto px-6">
           <h1 className="text-4xl font-bold mb-3">All Properties</h1>
@@ -236,10 +221,8 @@ export default function ListingsPage() {
         </div>
       </section>
 
-      {/* Search and Filters */}
       <section className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-md">
         <div className="max-w-7xl mx-auto px-6 py-6">
-          {/* Search Bar */}
           <div className="mb-6">
             <div className="relative">
               <input
@@ -255,9 +238,7 @@ export default function ListingsPage() {
             </div>
           </div>
 
-          {/* Filters */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Category Filter */}
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
@@ -272,7 +253,6 @@ export default function ListingsPage() {
               <option value="Female Student Hostel">Female Hostel</option>
             </select>
 
-            {/* Type Filter */}
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
@@ -283,7 +263,6 @@ export default function ListingsPage() {
               <option value="sale">For Sale</option>
             </select>
 
-            {/* Price Filter */}
             <select
               value={priceFilter}
               onChange={(e) => setPriceFilter(e.target.value)}
@@ -296,7 +275,6 @@ export default function ListingsPage() {
               <option value="above50k">Above ৳50,000</option>
             </select>
 
-            {/* Sort By */}
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
@@ -309,7 +287,6 @@ export default function ListingsPage() {
             </select>
           </div>
 
-          {/* Active Filters Count */}
           {(searchQuery || categoryFilter !== "all" || typeFilter !== "all" || priceFilter !== "all") && (
             <div className="mt-4 flex items-center justify-between">
               <p className="text-sm text-gray-600">
@@ -335,7 +312,6 @@ export default function ListingsPage() {
         </div>
       </section>
 
-      {/* Properties Grid */}
       <section className="max-w-7xl mx-auto px-6 py-12">
         {loading ? (
           <div className="py-20 text-center">
@@ -380,7 +356,6 @@ export default function ListingsPage() {
         )}
       </section>
 
-         {/* Footer */}
       <footer className="bg-purple-900 text-white py-12">
         <div className="max-w-6xl mx-auto text-center mb-8">
           <div className="font-bold text-xl mb-2">BashaChai.com</div>
@@ -420,7 +395,6 @@ export default function ListingsPage() {
         <div className="text-center text-gray-300">© 2025 BashaChai. All rights reserved.</div>
       </footer>
 
-      {/* Property Modal */}
       {isModalOpen && selectedProperty && (
         <PropertyModal property={selectedProperty} onClose={closeModal} />
       )}
@@ -428,7 +402,6 @@ export default function ListingsPage() {
   );
 }
 
-// ListingCard Component (same as homepage)
 function ListingCard({ property, onViewDetails, onToggleFavorite, isFavorited }) {
   const { title, location, price, beds, baths, image, images, category } = property;
   const fallbackImage = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80";
@@ -456,7 +429,6 @@ function ListingCard({ property, onViewDetails, onToggleFavorite, isFavorited })
         )}
       </button>
 
-      {/* Category Badge */}
       {category && (
         <div className="absolute top-6 left-6 z-10 px-3 py-1 rounded-full text-xs font-bold bg-purple-600 text-white">
           {category}
@@ -497,9 +469,8 @@ function ListingCard({ property, onViewDetails, onToggleFavorite, isFavorited })
   );
 }
 
-// PropertyModal Component (copy from your homepage - same modal code)
 function PropertyModal({ property, onClose }) {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const { user: authUser } = useContext(AuthContext);
   const fallbackImage = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80";
   
   const propertyImages = property.images && property.images.length > 0 
@@ -507,6 +478,87 @@ function PropertyModal({ property, onClose }) {
     : property.image 
       ? [property.image] 
       : [fallbackImage];
+
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  useEffect(() => {
+    async function fetchReviews() {
+      try {
+        setReviewsLoading(true);
+        const response = await fetch(`/api/reviews?propertyId=${property._id}`);
+        const result = await response.json();
+        
+        if (result.success) {
+          setReviews(result.data);
+        }
+      } catch (error) {
+        console.error('Error fetching reviews:', error);
+      } finally {
+        setReviewsLoading(false);
+      }
+    }
+
+    if (property._id) {
+      fetchReviews();
+    }
+  }, [property._id]);
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    
+    if (!authUser) {
+      alert('Please sign in to submit a review');
+      return;
+    }
+
+    if (!comment.trim()) {
+      alert('Please write a comment');
+      return;
+    }
+
+    try {
+      setSubmittingReview(true);
+      
+      const response = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          propertyId: property._id,
+          rating,
+          comment: comment.trim(),
+          userName: authUser.displayName || authUser.email.split('@')[0],
+          userEmail: authUser.email
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setReviews(prev => [result.data, ...prev]);
+        setComment("");
+        setRating(5);
+        alert('Review submitted successfully! ⭐');
+      } else {
+        alert('Failed to submit review: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      alert('Failed to submit review');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const averageRating = reviews.length > 0
+    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+    : 0;
 
   const previousImage = () => {
     setCurrentImageIndex((prev) => prev === 0 ? propertyImages.length - 1 : prev - 1);
@@ -589,7 +641,22 @@ function PropertyModal({ property, onClose }) {
           )}
         </div>
 
-        {/* Rest of modal content - same as homepage PropertyModal */}
+        {propertyImages.length > 1 && (
+          <div className="px-6 pt-4 pb-2">
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {propertyImages.map((img, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToImage(index)}
+                  className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${index === currentImageIndex ? 'border-purple-700 ring-2 ring-purple-300' : 'border-gray-300 hover:border-purple-400'}`}
+                >
+                  <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="p-6 space-y-6">
           <div className="border-b border-gray-200 pb-4">
             <h3 className="text-3xl font-bold text-gray-900 mb-2">{property.title}</h3>
@@ -604,11 +671,44 @@ function PropertyModal({ property, onClose }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-gray-500 mb-1">Location</p>
-              <p className="text-lg font-semibold text-gray-900">{property.location}</p>
+              <p className="text-lg font-semibold text-gray-900 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                {property.location}
+              </p>
             </div>
             <div>
               <p className="text-sm text-gray-500 mb-1">Category</p>
               <p className="text-lg font-semibold text-gray-900">{property.category}</p>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-xl p-4">
+            <h4 className="text-lg font-semibold text-gray-900 mb-3">Property Features</h4>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center p-3 bg-white rounded-lg">
+                <svg className="w-8 h-8 mx-auto mb-2 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                <p className="text-sm text-gray-500">Bedrooms</p>
+                <p className="text-xl font-bold text-gray-900">{property.beds || 0}</p>
+              </div>
+              <div className="text-center p-3 bg-white rounded-lg">
+                <svg className="w-8 h-8 mx-auto mb-2 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
+                </svg>
+                <p className="text-sm text-gray-500">Bathrooms</p>
+                <p className="text-xl font-bold text-gray-900">{property.baths || 0}</p>
+              </div>
+              <div className="text-center p-3 bg-white rounded-lg">
+                <svg className="w-8 h-8 mx-auto mb-2 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
+                <p className="text-sm text-gray-500">Size</p>
+                <p className="text-xl font-bold text-gray-900">{property.size ? `${property.size} sqft` : 'N/A'}</p>
+              </div>
             </div>
           </div>
 
@@ -617,11 +717,177 @@ function PropertyModal({ property, onClose }) {
             <p className="text-gray-700 leading-relaxed">{property.description}</p>
           </div>
 
+          <div className="bg-purple-50 rounded-xl p-6 border border-purple-100">
+            <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <svg className="w-6 h-6 mr-2 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              Property Owner
+            </h4>
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm text-gray-500">Name</p>
+                <p className="text-lg font-semibold text-gray-900">{property.createdByName || 'Property Owner'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Email</p>
+                <p className="text-lg font-semibold text-gray-900">{property.createdByEmail || 'contact@bashachai.com'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Posted On</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {property.createdAt ? new Date(property.createdAt).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  }) : 'N/A'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-200 pt-6">
+            <div className="flex items-center justify-between mb-6">
+              <h4 className="text-2xl font-bold text-gray-900 flex items-center">
+                <svg className="w-7 h-7 mr-2 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+                Reviews & Ratings
+              </h4>
+              {reviews.length > 0 && (
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-yellow-500">{averageRating}</div>
+                  <div className="text-sm text-gray-500">{reviews.length} review{reviews.length !== 1 ? 's' : ''}</div>
+                </div>
+              )}
+            </div>
+
+            {authUser ? (
+              <form onSubmit={handleSubmitReview} className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-6 mb-6 border border-purple-200">
+                <h5 className="text-lg font-semibold text-gray-900 mb-4">Write a Review</h5>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Your Rating</label>
+                  <div className="flex items-center space-x-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setRating(star)}
+                        className="focus:outline-none transition-transform hover:scale-110"
+                      >
+                        <svg
+                          className={`w-10 h-10 ${star <= rating ? 'text-yellow-500 fill-current' : 'text-gray-300'}`}
+                          viewBox="0 0 20 20"
+                        >
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                      </button>
+                    ))}
+                    <span className="ml-3 text-lg font-semibold text-gray-700">{rating} / 5</span>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Your Comment</label>
+                  <textarea
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    rows="4"
+                    required
+                    placeholder="Share your experience with this property..."
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-700 focus:outline-none"
+                  ></textarea>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submittingReview}
+                  className={`w-full py-3 rounded-lg font-semibold transition ${
+                    submittingReview
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-purple-700 text-white hover:bg-purple-600 shadow-lg hover:shadow-xl'
+                  }`}
+                >
+                  {submittingReview ? 'Submitting...' : 'Submit Review'}
+                </button>
+              </form>
+            ) : (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 text-center">
+                <p className="text-yellow-800 font-semibold">Please sign in to write a review</p>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {reviewsLoading ? (
+                <div className="text-center py-8">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-700"></div>
+                  <p className="mt-2 text-gray-600">Loading reviews...</p>
+                </div>
+              ) : reviews.length > 0 ? (
+                reviews.map((review) => (
+                  <div key={review._id} className="bg-gray-50 rounded-lg p-5 border border-gray-200">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-lg">
+                          {review.userName.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="ml-3">
+                          <p className="font-semibold text-gray-900">{review.userName}</p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(review.createdAt).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        {[...Array(5)].map((_, i) => (
+                          <svg
+                            key={i}
+                            className={`w-5 h-5 ${i < review.rating ? 'text-yellow-500 fill-current' : 'text-gray-300'}`}
+                            viewBox="0 0 20 20"
+                          >
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                        ))}
+                        <span className="ml-2 font-semibold text-gray-700">{review.rating}.0</span>
+                      </div>
+                    </div>
+                    <p className="text-gray-700 leading-relaxed">{review.comment}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                  <svg className="w-16 h-16 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                  </svg>
+                  <p className="text-gray-600 font-semibold">No reviews yet</p>
+                  <p className="text-gray-500 text-sm mt-1">Be the first to review this property!</p>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="flex gap-4 pt-4">
-            <a href={`mailto:${property.createdByEmail}?subject=Inquiry about ${property.title}`} className="flex-1 px-6 py-3 bg-purple-700 text-white rounded-lg hover:bg-purple-600 transition font-semibold text-center">
+            <a
+              href={`mailto:${property.createdByEmail}?subject=Inquiry about ${property.title}`}
+              className="flex-1 px-6 py-3 bg-purple-700 text-white rounded-lg hover:bg-purple-600 transition font-semibold text-center flex items-center justify-center"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
               Send Email
             </a>
-            <a href={`tel:+8801775549500`} className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold text-center">
+            <a
+              href={`tel:+8801775549500`}
+              className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold text-center flex items-center justify-center"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
               Call Now
             </a>
           </div>
