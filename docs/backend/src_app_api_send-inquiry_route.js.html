@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: src/app/api/send-inquiry/route.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: src/app/api/send-inquiry/route.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * @fileoverview Property inquiry email sender.
+ * Sends formatted inquiry emails to the BashaChai team using Nodemailer.
+ * This is a public endpoint (no authentication required).
+ * 
+ * @module api/send-inquiry
+ * @requires nodemailer
+ */
+
+import nodemailer from "nodemailer";
+
+/**
+ * POST /api/send-inquiry
+ * Sends a property inquiry email to the BashaChai team.
+ * Uses Gmail SMTP to send a nicely formatted HTML email.
+ * 
+ * @async
+ * @param {Request} request - The Next.js request object with JSON body
+ * @returns {Promise&lt;Response>} JSON response indicating success or failure
+ * @example
+ * // Request body:
+ * // {
+ * //   fullName: string (required),
+ * //   mobile: string (required),
+ * //   email: string (optional),
+ * //   type: string (required) - Type of inquiry,
+ * //   location: string (optional),
+ * //   message: string (required)
+ * // }
+ */
+export async function POST(request) {
+  try {
+    const { fullName, mobile, email, type, location, message } = await request.json();
+
+    // Configure transporter
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+      },
+    });
+
+    const mailOptions = {
+      from: `"${fullName}" &lt;${process.env.GMAIL_USER}>`, // Show sender's name
+      replyTo: email || undefined, // Set reply-to as sender's email if provided
+      to: "bashachai34@gmail.com",
+      subject: `Property Inquiry from ${fullName}`, // Clean subject line
+      html: `
+        &lt;div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+          &lt;div style="background-color: #7c3aed; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+            &lt;h2 style="color: white; margin: 0;">New Property Inquiry&lt;/h2>
+          &lt;/div>
+          
+          &lt;div style="background-color: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            &lt;h3 style="color: #333; border-bottom: 2px solid #7c3aed; padding-bottom: 10px;">Contact Information&lt;/h3>
+            
+            &lt;table style="width: 100%; margin: 20px 0;">
+              &lt;tr>
+                &lt;td style="padding: 10px 0; color: #666; font-weight: bold; width: 120px;">Full Name:&lt;/td>
+                &lt;td style="padding: 10px 0; color: #333;">${fullName}&lt;/td>
+              &lt;/tr>
+              &lt;tr>
+                &lt;td style="padding: 10px 0; color: #666; font-weight: bold;">Mobile:&lt;/td>
+                &lt;td style="padding: 10px 0; color: #333;">${mobile}&lt;/td>
+              &lt;/tr>
+              &lt;tr>
+                &lt;td style="padding: 10px 0; color: #666; font-weight: bold;">Email:&lt;/td>
+                &lt;td style="padding: 10px 0; color: #333;">${email || "Not provided"}&lt;/td>
+              &lt;/tr>
+              &lt;tr>
+                &lt;td style="padding: 10px 0; color: #666; font-weight: bold;">Inquiry Type:&lt;/td>
+                &lt;td style="padding: 10px 0; color: #333;">${type}&lt;/td>
+              &lt;/tr>
+              &lt;tr>
+                &lt;td style="padding: 10px 0; color: #666; font-weight: bold;">Location:&lt;/td>
+                &lt;td style="padding: 10px 0; color: #333;">${location || "Not specified"}&lt;/td>
+              &lt;/tr>
+            &lt;/table>
+
+            &lt;h3 style="color: #333; border-bottom: 2px solid #7c3aed; padding-bottom: 10px; margin-top: 30px;">Message&lt;/h3>
+            &lt;div style="background-color: #f5f3ff; padding: 15px; border-radius: 5px; margin-top: 15px; color: #333; line-height: 1.6;">
+              ${message}
+            &lt;/div>
+
+            &lt;div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e5e5; text-align: center; color: #666; font-size: 12px;">
+              &lt;p>This inquiry was submitted through BashaChai.com&lt;/p>
+              &lt;p style="margin-top: 5px;">© ${new Date().getFullYear()} BashaChai.com - All rights reserved&lt;/p>
+            &lt;/div>
+          &lt;/div>
+        &lt;/div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    return new Response(JSON.stringify({ success: true }), { status: 200 });
+  } catch (error) {
+    return new Response(JSON.stringify({ success: false, error: error.message }), { status: 500 });
+  }
+}
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-api_properties.html">api/properties</a></li><li><a href="module-api_properties_%255Bid%255D.html">api/properties/[id]</a></li><li><a href="module-api_reviews.html">api/reviews</a></li><li><a href="module-api_send-inquiry.html">api/send-inquiry</a></li><li><a href="module-api_user.html">api/user</a></li><li><a href="module-lib_auth.html">lib/auth</a></li><li><a href="module-lib_mongodb.html">lib/mongodb</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Wed Dec 03 2025 23:09:07 GMT+0600 (Bangladesh Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

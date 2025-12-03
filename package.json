@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "docs:generate": "jsdoc -c jsdoc.json",
+    "docs:serve": "npm run docs:generate && start docs/backend/index.html"
   },
   "dependencies": {
     "cloudinary": "^2.8.0",
@@ -27,6 +29,7 @@
     "@tailwindcss/postcss": "^4",
     "eslint": "^9",
     "eslint-config-next": "16.0.3",
+    "jsdoc": "^4.0.4",
     "tailwindcss": "^4"
   }
 }

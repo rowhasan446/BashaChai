@@ -1,4 +1,32 @@
-/**
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: src/app/api/properties/[id]/route.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: src/app/api/properties/[id]/route.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
  * @fileoverview Individual property CRUD operations.
  * Handles fetching, updating, and deleting specific properties by ID.
  * GET is public, PUT and DELETE require authentication and ownership verification.
@@ -40,7 +68,7 @@ cloudinary.config({
  * @async
  * @param {File} file - The image file to upload
  * @param {string} userId - The user's ID for naming the file
- * @returns {Promise<Object>} Object with URL and public ID
+ * @returns {Promise&lt;Object>} Object with URL and public ID
  * @throws {Error} If file is invalid or upload fails
  */
 async function uploadImageToCloudinary(file, userId) {
@@ -122,7 +150,7 @@ function extractPublicIdFromUrl(imageUrl) {
  * @param {Request} request - The Next.js request object
  * @param {Object} params - Route parameters
  * @param {string} params.id - The property's MongoDB ObjectId (24-character hex string)
- * @returns {Promise<NextResponse>} JSON response with property data
+ * @returns {Promise&lt;NextResponse>} JSON response with property data
  */
 export async function GET(request, { params }) {
   try {
@@ -206,7 +234,7 @@ export async function GET(request, { params }) {
  * @param {Request} request - The Next.js request object with FormData
  * @param {Object} params - Route parameters
  * @param {string} params.id - The property's MongoDB ObjectId
- * @returns {Promise<NextResponse>} JSON response with updated property data
+ * @returns {Promise&lt;NextResponse>} JSON response with updated property data
  * @example
  * // FormData fields:
  * // - All fields from POST endpoint
@@ -276,14 +304,14 @@ export async function PUT(request, { params }) {
     console.log('🔍 PUT /api/properties/[id] - User:', user.email, 'Property ID:', id);
 
     // Validate required fields
-    if (!title || typeof title !== 'string' || title.trim().length < 1) {
+    if (!title || typeof title !== 'string' || title.trim().length &lt; 1) {
       return NextResponse.json({
         success: false,
         message: "Valid title is required"
       }, { status: 400 });
     }
 
-    if (!location || typeof location !== 'string' || location.trim().length < 1) {
+    if (!location || typeof location !== 'string' || location.trim().length &lt; 1) {
       return NextResponse.json({
         success: false,
         message: "Valid location is required"
@@ -297,7 +325,7 @@ export async function PUT(request, { params }) {
       }, { status: 400 });
     }
 
-    if (!description || typeof description !== 'string' || description.trim().length < 1) {
+    if (!description || typeof description !== 'string' || description.trim().length &lt; 1) {
       return NextResponse.json({
         success: false,
         message: "Valid description is required"
@@ -311,7 +339,7 @@ export async function PUT(request, { params }) {
     console.log('📊 Image management:', {
       existingImagesCount: existingImages.length,
       imagesToDeleteCount: imagesToDelete.length,
-      newImagesCount: newImageFiles.filter(f => f && f.size > 0).length
+      newImagesCount: newImageFiles.filter(f => f &amp;&amp; f.size > 0).length
     });
 
     // Delete old images from Cloudinary
@@ -334,8 +362,8 @@ export async function PUT(request, { params }) {
     let newImageUrls = [];
     let newImagePublicIds = [];
 
-    if (newImageFiles && newImageFiles.length > 0) {
-      const validImageFiles = newImageFiles.filter(file => file && file.size > 0);
+    if (newImageFiles &amp;&amp; newImageFiles.length > 0) {
+      const validImageFiles = newImageFiles.filter(file => file &amp;&amp; file.size > 0);
 
       if (validImageFiles.length > 0) {
         const maxImages = 10;
@@ -487,7 +515,7 @@ export async function PUT(request, { params }) {
  * @param {Request} request - The Next.js request object
  * @param {Object} params - Route parameters
  * @param {string} params.id - The property's MongoDB ObjectId
- * @returns {Promise<NextResponse>} JSON response confirming deletion
+ * @returns {Promise&lt;NextResponse>} JSON response confirming deletion
  */
 export async function DELETE(request, { params }) {
   let user = null;
@@ -612,3 +640,26 @@ export async function DELETE(request, { params }) {
     }, { status: 500 });
   }
 }
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-api_properties.html">api/properties</a></li><li><a href="module-api_properties_%255Bid%255D.html">api/properties/[id]</a></li><li><a href="module-api_reviews.html">api/reviews</a></li><li><a href="module-api_send-inquiry.html">api/send-inquiry</a></li><li><a href="module-api_user.html">api/user</a></li><li><a href="module-lib_auth.html">lib/auth</a></li><li><a href="module-lib_mongodb.html">lib/mongodb</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Wed Dec 03 2025 23:09:07 GMT+0600 (Bangladesh Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
