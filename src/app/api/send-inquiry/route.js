@@ -1,5 +1,33 @@
+/**
+ * @fileoverview Property inquiry email sender.
+ * Sends formatted inquiry emails to the BashaChai team using Nodemailer.
+ * This is a public endpoint (no authentication required).
+ * 
+ * @module api/send-inquiry
+ * @requires nodemailer
+ */
+
 import nodemailer from "nodemailer";
 
+/**
+ * POST /api/send-inquiry
+ * Sends a property inquiry email to the BashaChai team.
+ * Uses Gmail SMTP to send a nicely formatted HTML email.
+ * 
+ * @async
+ * @param {Request} request - The Next.js request object with JSON body
+ * @returns {Promise<Response>} JSON response indicating success or failure
+ * @example
+ * // Request body:
+ * // {
+ * //   fullName: string (required),
+ * //   mobile: string (required),
+ * //   email: string (optional),
+ * //   type: string (required) - Type of inquiry,
+ * //   location: string (optional),
+ * //   message: string (required)
+ * // }
+ */
 export async function POST(request) {
   try {
     const { fullName, mobile, email, type, location, message } = await request.json();

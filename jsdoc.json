@@ -1,0 +1,19 @@
+{
+    "source": {
+        "include": [
+            "lib",
+            "src/app/api"
+        ],
+        "includePattern": ".+\\.js(doc|x)?$",
+        "excludePattern": "(node_modules/|.next/)"
+    },
+    "opts": {
+        "destination": "./docs/backend",
+        "recurse": true,
+        "readme": "./README.md",
+        "encoding": "utf8"
+    },
+    "metadata": {
+        "title": "BashaChai Backend API Documentation"
+    }
+}

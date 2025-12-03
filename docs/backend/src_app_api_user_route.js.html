@@ -1,4 +1,32 @@
-/**
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: src/app/api/user/route.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: src/app/api/user/route.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
  * @fileoverview User management API endpoints.
  * Handles user CRUD operations, profile picture uploads, and role management.
  * Most endpoints require authentication, with role-based access control.
@@ -47,7 +75,7 @@ cloudinary.config({
  * 
  * @async
  * @param {Request} req - The Next.js request object
- * @returns {Promise<NextResponse>} JSON response with user data
+ * @returns {Promise&lt;NextResponse>} JSON response with user data
  * @example
  * // Check if email exists:
  * // GET /api/user?email=john@example.com
@@ -83,7 +111,7 @@ export async function GET(req) {
 
 
     // Input validation
-    if (email && (typeof email !== 'string' || !email.includes('@'))) {
+    if (email &amp;&amp; (typeof email !== 'string' || !email.includes('@'))) {
       return NextResponse.json({ error: 'Invalid email format' }, { status: 400 })
     }
 
@@ -96,7 +124,7 @@ export async function GET(req) {
 
     if (email) {
       // Users can only check their own email unless admin
-      if (user.email !== email && user.role !== 'admin') {
+      if (user.email !== email &amp;&amp; user.role !== 'admin') {
         return createAuthError('Access denied: Cannot check other users', 403)
       }
 
@@ -243,7 +271,7 @@ export async function GET(req) {
  * 
  * @async
  * @param {Request} req - The Next.js request object with JSON body
- * @returns {Promise<NextResponse>} JSON response with created/updated user data
+ * @returns {Promise&lt;NextResponse>} JSON response with created/updated user data
  * @example
  * // Create new user (self-registration):
  * // POST /api/user
@@ -294,7 +322,7 @@ export async function POST(req) {
 
 
       // Users can only update their own profile unless admin
-      if (user.email !== email && user.role !== 'admin') {
+      if (user.email !== email &amp;&amp; user.role !== 'admin') {
         return createAuthError('Access denied: Cannot update other users', 403)
       }
 
@@ -310,7 +338,7 @@ export async function POST(req) {
 
       // Validate and set name
       if (name !== undefined) {
-        if (typeof name !== 'string' || name.trim().length < 1) {
+        if (typeof name !== 'string' || name.trim().length &lt; 1) {
           return NextResponse.json({ error: 'Valid name is required' }, { status: 400 })
         }
         updateData.name = name.trim()
@@ -343,7 +371,7 @@ export async function POST(req) {
 
 
 
-          if (cleanPhone.length === 10 && !cleanPhone.startsWith('0')) {
+          if (cleanPhone.length === 10 &amp;&amp; !cleanPhone.startsWith('0')) {
             cleanPhone = '0' + cleanPhone
           }
 
@@ -449,7 +477,7 @@ export async function POST(req) {
 
 
     // Only require admin role if creating for someone else
-    if (isAdminCreation && requiresAuth) {
+    if (isAdminCreation &amp;&amp; requiresAuth) {
       try {
         requireRole(user, ['admin'])
       } catch (roleError) {
@@ -473,7 +501,7 @@ export async function POST(req) {
 
 
     // Validate required fields for new user
-    if (!body.name || typeof body.name !== 'string' || body.name.trim().length < 1) {
+    if (!body.name || typeof body.name !== 'string' || body.name.trim().length &lt; 1) {
       return NextResponse.json({ error: 'Valid name is required' }, { status: 400 })
     }
 
@@ -484,7 +512,7 @@ export async function POST(req) {
       email: body.email.toLowerCase().trim(),
       name: body.name.trim(),
       phone: body.phone || '',
-      role: isAdminCreation && body.role && ['admin', 'user'].includes(body.role)
+      role: isAdminCreation &amp;&amp; body.role &amp;&amp; ['admin', 'user'].includes(body.role)
         ? body.role
         : 'user', // Default role for self-registration
       profilePicture: body.profilePicture || '',
@@ -556,7 +584,7 @@ export async function POST(req) {
  * 
  * @async
  * @param {Request} req - The Next.js request object with FormData
- * @returns {Promise<NextResponse>} JSON response with new image URL
+ * @returns {Promise&lt;NextResponse>} JSON response with new image URL
  * @example
  * // FormData fields:
  * // - email: string (required)
@@ -598,7 +626,7 @@ export async function PUT(req) {
 
 
     // Users can only update their own profile picture unless admin
-    if (user.email !== email && user.role !== 'admin') {
+    if (user.email !== email &amp;&amp; user.role !== 'admin') {
       return createAuthError('Access denied: Cannot update other users\' profile pictures', 403)
     }
 
@@ -753,7 +781,7 @@ export async function PUT(req) {
  * 
  * @async
  * @param {Request} req - The Next.js request object
- * @returns {Promise<NextResponse>} JSON response confirming deletion
+ * @returns {Promise&lt;NextResponse>} JSON response confirming deletion
  * @example
  * // Query parameters:
  * // - email: string (required)
@@ -787,7 +815,7 @@ export async function DELETE(req) {
 
 
     // Users can only delete their own profile picture unless admin
-    if (user.email !== email && user.role !== 'admin') {
+    if (user.email !== email &amp;&amp; user.role !== 'admin') {
       return createAuthError('Access denied: Cannot delete other users\' profile pictures', 403)
     }
 
@@ -876,3 +904,26 @@ export async function DELETE(req) {
     }, { status: 500 })
   }
 }
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-api_properties.html">api/properties</a></li><li><a href="module-api_properties_%255Bid%255D.html">api/properties/[id]</a></li><li><a href="module-api_reviews.html">api/reviews</a></li><li><a href="module-api_send-inquiry.html">api/send-inquiry</a></li><li><a href="module-api_user.html">api/user</a></li><li><a href="module-lib_auth.html">lib/auth</a></li><li><a href="module-lib_mongodb.html">lib/mongodb</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Wed Dec 03 2025 23:09:07 GMT+0600 (Bangladesh Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
