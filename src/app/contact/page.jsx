@@ -50,31 +50,7 @@ export default function ContactPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <nav className="container mx-auto flex items-center px-6 py-4">
-          <Link href="/" className="text-2xl font-bold text-black">
-            BashaChai.com
-          </Link>
-          <ul className="flex space-x-6 ml-auto">
-            <li>
-              <Link href="/" className="text-black hover:bg-purple-200 hover:shadow-md rounded-md px-3 py-1 transition">
-                Home
-              </Link>
-            </li>
-            <li>
-              <Link href="/properties" className="text-black hover:bg-purple-200 hover:shadow-md rounded-md px-3 py-1 transition">
-                Properties
-              </Link>
-            </li>
-            <li>
-              <Link href="/contact" className="text-black bg-purple-200 rounded-md px-3 py-1">
-                Contact
-              </Link>
-            </li>
-          </ul>
-        </nav>
-      </header>
-
+      
       {/* Hero Section */}
       <section className="bg-gradient-to-r from-purple-700 to-purple-900 text-white py-16">
         <div className="container mx-auto px-6 text-center">
@@ -363,20 +339,7 @@ export default function ContactPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-purple-900 text-white py-12">
-        <div className="container mx-auto px-6">
-          <div className="text-center">
-            <h3 className="text-2xl font-bold mb-2">BashaChai.com</h3>
-            <p className="text-purple-200 mb-6">
-              Bangladesh's Leading Real Estate Platform
-            </p>
-            <p className="text-purple-300 text-sm">
-              © 2025 BashaChai. All rights reserved. | Proudly serving Bangladesh
-            </p>
-          </div>
-        </div>
-      </footer>
+     
     </div>
   );
 }
