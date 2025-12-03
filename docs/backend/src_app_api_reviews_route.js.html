@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: src/app/api/reviews/route.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: src/app/api/reviews/route.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * @fileoverview Property review management API.
+ * Handles fetching and creating reviews for properties.
+ * Both endpoints are public (no authentication required).
+ * 
+ * @module api/reviews
+ * @requires mongodb
+ */
+
+import { MongoClient } from "mongodb";
+
+const uri = process.env.MONGODB_URI;
+
+/**
+ * Connects to the MongoDB database.
+ * Creates a new connection for each request.
+ * 
+ * @private
+ * @async
+ * @returns {Promise&lt;MongoClient>} Connected MongoDB client
+ * @throws {Error} If MONGODB_URI is not defined
+ */
+async function connectToDatabase() {
+  if (!uri) {
+    throw new Error('MONGODB_URI is not defined in environment variables');
+  }
+
+  const client = new MongoClient(uri);
+  await client.connect();
+  return client;
+}
+
+/**
+ * GET /api/reviews
+ * Fetches all reviews for a specific property.
+ * Returns reviews sorted by creation date (newest first).
+ * 
+ * @async
+ * @param {Request} request - The Next.js request object
+ * @returns {Promise&lt;Response>} JSON response with array of reviews
+ * @example
+ * // Query parameters:
+ * // - propertyId: string (required) - The property ID to get reviews for
+ */
+export async function GET(request) {
+  let client;
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const propertyId = searchParams.get('propertyId');
+
+    if (!propertyId) {
+      return Response.json(
+        { success: false, message: 'Property ID required' },
+        { status: 400 }
+      );
+    }
+
+    client = await connectToDatabase();
+    const db = client.db("bashachai");
+
+    const reviews = await db.collection("reviews")
+      .find({ propertyId })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    return Response.json(
+      { success: true, data: reviews },
+      { status: 200 }
+    );
+
+  } catch (error) {
+    console.error('❌ Error fetching reviews:', error);
+    return Response.json(
+      { success: false, message: error.message },
+      { status: 500 }
+    );
+  } finally {
+    if (client) {
+      await client.close();
+    }
+  }
+}
+
+/**
+ * POST /api/reviews
+ * Creates a new review for a property.
+ * Validates rating is between 1-5 and all required fields are present.
+ * 
+ * @async
+ * @param {Request} request - The Next.js request object with JSON body
+ * @returns {Promise&lt;Response>} JSON response with created review data
+ * @example
+ * // Request body:
+ * // {
+ * //   propertyId: string (required),
+ * //   rating: number (required, 1-5),
+ * //   comment: string (required),
+ * //   userName: string (required),
+ * //   userEmail: string (required)
+ * // }
+ */
+export async function POST(request) {
+  let client;
+
+  try {
+    const body = await request.json();
+    const { propertyId, rating, comment, userName, userEmail } = body;
+
+    // Validation
+    if (!propertyId || !rating || !comment || !userName || !userEmail) {
+      return Response.json(
+        { success: false, message: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    if (rating &lt; 1 || rating > 5) {
+      return Response.json(
+        { success: false, message: 'Rating must be between 1 and 5' },
+        { status: 400 }
+      );
+    }
+
+    client = await connectToDatabase();
+    const db = client.db("bashachai");
+
+    const review = {
+      propertyId,
+      rating: parseInt(rating),
+      comment: comment.trim(),
+      userName,
+      userEmail,
+      createdAt: new Date()
+    };
+
+    const result = await db.collection("reviews").insertOne(review);
+
+    return Response.json(
+      {
+        success: true,
+        data: {
+          _id: result.insertedId,
+          ...review
+        }
+      },
+      { status: 201 }
+    );
+
+  } catch (error) {
+    console.error('❌ Error creating review:', error);
+    return Response.json(
+      { success: false, message: error.message },
+      { status: 500 }
+    );
+  } finally {
+    if (client) {
+      await client.close();
+    }
+  }
+}
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-api_properties.html">api/properties</a></li><li><a href="module-api_properties_%255Bid%255D.html">api/properties/[id]</a></li><li><a href="module-api_reviews.html">api/reviews</a></li><li><a href="module-api_send-inquiry.html">api/send-inquiry</a></li><li><a href="module-api_user.html">api/user</a></li><li><a href="module-lib_auth.html">lib/auth</a></li><li><a href="module-lib_mongodb.html">lib/mongodb</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Wed Dec 03 2025 23:09:07 GMT+0600 (Bangladesh Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

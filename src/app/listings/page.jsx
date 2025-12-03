@@ -3,7 +3,7 @@
 import { useState, useEffect, useContext, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AuthContext } from "../../Provider/AuthProvider";
+import { AuthContext } from "../../../Provider/AuthProvider";
 
 const navLinks = [
   { name: "Home", href: "/" },
@@ -15,41 +15,23 @@ const navLinks = [
   { name: "Blog", href: "/blog" },
 ];
 
-const sliderImages = [
-  "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1460518451285-97b6aa326961?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1482062364825-616fd23b8fc1?auto=format&fit=crop&w=1200&q=80"
-];
-
-const featuredImages = [
-  "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1460518451285-97b6aa326961?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1482062364825-616fd23b8fc1?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1432888498266-38ffec3eaf0a?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1457296898342-cdd24585d095?auto=format&fit=crop&w=800&q=80",
-];
-
-export default function HomePage() {
+export default function ListingsPage() {
   const router = useRouter();
   const { user: authUser, logOut } = useContext(AuthContext);
-  const [slideIndex, setSlideIndex] = useState(0);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [favorites, setFavorites] = useState([]);
   const dropdownRef = useRef(null);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedType, setSelectedType] = useState("rent");
-  const [selectedCategory, setSelectedCategory] = useState("");
-
-  const [hostels, setHostels] = useState([]);
-  const [hostelFilter, setHostelFilter] = useState("all");
-  const [hostelsLoading, setHostelsLoading] = useState(true);
-  const [hostelsError, setHostelsError] = useState(null);
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [priceFilter, setPriceFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("newest");
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -58,19 +40,11 @@ export default function HomePage() {
         if (storedFavorites) {
           const parsed = JSON.parse(storedFavorites);
           setFavorites(Array.isArray(parsed) ? parsed : []);
-          console.log('✅ Loaded favorites from localStorage:', parsed.length);
         }
       } catch (error) {
         console.error('Error loading favorites:', error);
         setFavorites([]);
       }
-    }
-  }, []);
-
-  useEffect(() => {
-    const userToken = localStorage.getItem('userToken');
-    if (userToken) {
-      setIsLoggedIn(true);
     }
   }, []);
 
@@ -82,7 +56,6 @@ export default function HomePage() {
         const result = await response.json();
 
         if (result.success) {
-          console.log('✅ Fetched properties:', result.data.length);
           setProperties(result.data);
         } else {
           setError(result.message || 'Failed to load properties');
@@ -99,58 +72,20 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    async function fetchHostels() {
-      try {
-        setHostelsLoading(true);
-        const response = await fetch('/api/properties');
-        const result = await response.json();
-
-        if (result.success) {
-          const hostelProperties = result.data.filter(
-            prop => prop.category === "Male Student Hostel" || prop.category === "Female Student Hostel"
-          );
-          setHostels(hostelProperties);
-          console.log('✅ Loaded hostels:', hostelProperties.length);
-        } else {
-          setHostelsError(result.message || 'Failed to load hostels');
-        }
-      } catch (error) {
-        console.error('Error fetching hostels:', error);
-        setHostelsError('Failed to load hostels');
-      } finally {
-        setHostelsLoading(false);
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setProfileDropdownOpen(false);
       }
     }
 
-    fetchHostels();
-  }, []);
-
-  const filteredHostels = hostels.filter(hostel => {
-    if (hostelFilter === "all") return true;
-    if (hostelFilter === "male") return hostel.category === "Male Student Hostel";
-    if (hostelFilter === "female") return hostel.category === "Female Student Hostel";
-    return true;
-  });
-
-  const filteredProperties = properties.filter((property) => {
-    if (searchQuery === "" && selectedCategory === "") {
-      return true;
+    if (profileDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
     }
 
-    const matchesSearch = 
-      searchQuery === "" ||
-      property.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      property.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      property.description?.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesType = property.type === selectedType;
-
-    const matchesCategory = 
-      selectedCategory === "" || 
-      property.category === selectedCategory;
-
-    return matchesSearch && matchesType && matchesCategory;
-  });
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [profileDropdownOpen]);
 
   useEffect(() => {
     const handleEscape = (e) => {
@@ -170,13 +105,23 @@ export default function HomePage() {
     };
   }, [isModalOpen]);
 
-  function prevSlide() {
-    setSlideIndex((slideIndex - 1 + sliderImages.length) % sliderImages.length);
-  }
+  const handleSignOut = (e) => {
+    e.preventDefault();
+    setProfileDropdownOpen(false);
+    logOut()
+      .then(() => {
+        console.log('User signed out successfully');
+      })
+      .catch((error) => console.error('Error signing out:', error));
+  };
 
-  function nextSlide() {
-    setSlideIndex((slideIndex + 1) % sliderImages.length);
-  }
+  const handleSignIn = (e) => {
+    router.push('/Login');
+  };
+
+  const toggleProfileDropdown = () => {
+    setProfileDropdownOpen(!profileDropdownOpen);
+  };
 
   const openModal = (property) => {
     setSelectedProperty(property);
@@ -197,21 +142,17 @@ export default function HomePage() {
 
     setFavorites((prevFavorites) => {
       let updatedFavorites;
-      
       const existingIndex = prevFavorites.findIndex(fav => fav._id === property._id);
       
       if (existingIndex !== -1) {
         updatedFavorites = prevFavorites.filter(fav => fav._id !== property._id);
-        console.log('❌ Removed from favorites:', property.title);
       } else {
         updatedFavorites = [...prevFavorites, property];
-        console.log('✅ Added to favorites:', property.title);
       }
 
       if (typeof window !== 'undefined') {
         try {
           localStorage.setItem('favorites', JSON.stringify(updatedFavorites));
-          console.log('💾 Saved to localStorage. Total favorites:', updatedFavorites.length);
         } catch (error) {
           console.error('Error saving favorites:', error);
         }
@@ -225,303 +166,234 @@ export default function HomePage() {
     return favorites.some(fav => fav._id === propertyId);
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    console.log('🔍 Searching:', { searchQuery, selectedType, selectedCategory });
-  };
+  const filteredAndSortedProperties = properties
+    .filter((property) => {
+      const matchesSearch = 
+        property.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        property.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        property.description?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesCategory = categoryFilter === "all" || property.category === categoryFilter;
+      const matchesType = typeFilter === "all" || property.type === typeFilter;
+
+      let matchesPrice = true;
+      if (priceFilter !== "all") {
+        const priceValue = parseInt(property.price?.replace(/[^0-9]/g, '') || 0);
+        switch (priceFilter) {
+          case "under10k":
+            matchesPrice = priceValue < 10000;
+            break;
+          case "10k-25k":
+            matchesPrice = priceValue >= 10000 && priceValue <= 25000;
+            break;
+          case "25k-50k":
+            matchesPrice = priceValue > 25000 && priceValue <= 50000;
+            break;
+          case "above50k":
+            matchesPrice = priceValue > 50000;
+            break;
+        }
+      }
+
+      return matchesSearch && matchesCategory && matchesType && matchesPrice;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "newest":
+          return new Date(b.createdAt) - new Date(a.createdAt);
+        case "oldest":
+          return new Date(a.createdAt) - new Date(b.createdAt);
+        case "price-low":
+          return parseInt(a.price?.replace(/[^0-9]/g, '') || 0) - parseInt(b.price?.replace(/[^0-9]/g, '') || 0);
+        case "price-high":
+          return parseInt(b.price?.replace(/[^0-9]/g, '') || 0) - parseInt(a.price?.replace(/[^0-9]/g, '') || 0);
+        default:
+          return 0;
+      }
+    });
 
   return (
-    <main className="font-sans bg-gray-50 text-black">
-      <section className="relative max-w-6xl mx-auto mt-8 rounded-lg overflow-hidden shadow-lg">
-        <img
-          src={sliderImages[slideIndex]}
-          alt={`Slide ${slideIndex + 1}`}
-          className="w-full h-64 sm:h-80 md:h-96 object-cover transition-opacity duration-500"
-          key={sliderImages[slideIndex]}
-        />
-        <button
-          onClick={prevSlide}
-          aria-label="Previous Slide"
-          className="absolute top-1/2 left-3 -translate-y-1/2 rounded-full bg-purple-700 text-white p-2 hover:bg-purple-600 shadow-lg transition"
-        >
-          &#8249;
-        </button>
-        <button
-          onClick={nextSlide}
-          aria-label="Next Slide"
-          className="absolute top-1/2 right-3 -translate-y-1/2 rounded-full bg-purple-700 text-white p-2 hover:bg-purple-600 shadow-lg transition"
-        >
-          &#8250;
-        </button>
-        <div className="absolute bottom-3 left-0 right-0 flex justify-center space-x-3">
-          {sliderImages.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => setSlideIndex(idx)}
-              className={`w-3 h-3 rounded-full transition-opacity ${
-                idx === slideIndex ? "opacity-100 bg-purple-700" : "opacity-40 bg-gray-400"
-              }`}
-              aria-label={`Go to slide ${idx + 1}`}
-            />
-          ))}
+    <main className="font-sans bg-gray-50 text-black min-h-screen">
+      <section className="bg-gradient-to-r from-purple-700 to-purple-900 text-white py-12">
+        <div className="max-w-7xl mx-auto px-6">
+          <h1 className="text-4xl font-bold mb-3">All Properties</h1>
+          <p className="text-purple-100">Browse through {properties.length} available properties</p>
         </div>
       </section>
 
-      <section className="text-center mt-10 px-4 sm:px-0 max-w-6xl mx-auto">
-        <h1 className="text-3xl font-semibold mb-6">
-          A great platform to sell and rent your <span className="text-purple-700">Properties.</span>
-        </h1>
-        <form onSubmit={handleSearch} className="inline-flex flex-wrap items-center gap-3 justify-center">
-          <button
-            type="button"
-            onClick={() => setSelectedType("rent")}
-            className={`px-6 py-2 rounded-md font-semibold shadow hover:shadow-lg transition ${
-              selectedType === "rent"
-                ? "bg-purple-700 text-white"
-                : "border border-purple-700 text-purple-700 hover:text-purple-800 hover:border-purple-800"
-            }`}
-          >
-            To rent
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedType("sale")}
-            className={`px-6 py-2 rounded-md font-semibold shadow hover:shadow-lg transition ${
-              selectedType === "sale"
-                ? "bg-purple-700 text-white"
-                : "border border-purple-700 text-purple-700 hover:text-purple-800 hover:border-purple-800"
-            }`}
-          >
-            For sell
-          </button>
-          <input
-            type="text"
-            placeholder="Search Location..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-md text-black focus:ring-2 focus:ring-purple-700 focus:outline-none"
-          />
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-md text-black focus:ring-2 focus:ring-purple-700 focus:outline-none"
-          >
-            <option value="">All Categories</option>
-            <option value="Flat to Rent">Flat/Apartment</option>
-            <option value="Single Room to Rent">Single Room</option>
-            <option value="Sublet Room to Rent">Sublet</option>
-            <option value="Office Space to Rent">Office Space</option>
-            <option value="Male Student Hostel">Male Hostel</option>
-            <option value="Female Student Hostel">Female Hostel</option>
-          </select>
-          <button
-            type="submit"
-            className="px-6 py-2 rounded-md bg-purple-700 text-white hover:bg-purple-600 shadow hover:shadow-lg transition font-semibold"
-          >
-            Search
-          </button>
-        </form>
+      <section className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-md">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="mb-6">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search by title, location, or description..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-700 focus:outline-none"
+              />
+              <svg className="w-6 h-6 absolute left-4 top-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
 
-        {(searchQuery || selectedCategory) && (
-          <div className="mt-4 inline-flex items-center gap-3 bg-purple-50 border border-purple-200 rounded-lg px-4 py-2">
-            <p className="text-sm text-purple-900">
-              <span className="font-semibold">{filteredProperties.length}</span> properties found
-            </p>
-            <button
-              onClick={() => {
-                setSearchQuery("");
-                setSelectedCategory("");
-                setSelectedType("rent");
-              }}
-              className="text-sm text-purple-700 hover:text-purple-800 font-semibold flex items-center"
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-700 focus:outline-none"
             >
-              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              Clear
-            </button>
-          </div>
-        )}
-      </section>
+              <option value="all">All Categories</option>
+              <option value="Flat to Rent">Flat/Apartment</option>
+              <option value="Single Room to Rent">Single Room</option>
+              <option value="Sublet Room to Rent">Sublet</option>
+              <option value="Office Space to Rent">Office Space</option>
+              <option value="Male Student Hostel">Male Hostel</option>
+              <option value="Female Student Hostel">Female Hostel</option>
+            </select>
 
-      
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-700 focus:outline-none"
+            >
+              <option value="all">All Types</option>
+              <option value="rent">For Rent</option>
+              <option value="sale">For Sale</option>
+            </select>
 
-      <section className="bg-gray-100 py-12">
-        <div className="max-w-6xl mx-auto text-center">
-          <div className="inline-flex space-x-4 mb-6">
-            <button className="px-5 py-2 rounded-md bg-purple-700 text-white hover:bg-purple-600 shadow hover:shadow-lg transition">
-              Top Picks
-            </button>
-            <button className="px-5 py-2 rounded-md border border-purple-700 text-purple-700 hover:text-purple-800 hover:border-purple-800 transition">
-              Recent Views
-            </button>
-            <button className="px-5 py-2 rounded-md border border-purple-700 text-purple-700 hover:text-purple-800 hover:border-purple-800 transition">
-              Watchlist
-            </button>
+            <select
+              value={priceFilter}
+              onChange={(e) => setPriceFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-700 focus:outline-none"
+            >
+              <option value="all">All Prices</option>
+              <option value="under10k">Under ৳10,000</option>
+              <option value="10k-25k">৳10,000 - ৳25,000</option>
+              <option value="25k-50k">৳25,000 - ৳50,000</option>
+              <option value="above50k">Above ৳50,000</option>
+            </select>
+
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-700 focus:outline-none"
+            >
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="price-low">Price: Low to High</option>
+              <option value="price-high">Price: High to Low</option>
+            </select>
           </div>
-          <p className="mb-8">Explore a wide range of properties for sale and rent, tailored to your needs.</p>
-          
-          {loading ? (
-            <div className="py-12">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-700"></div>
-              <p className="mt-4 text-gray-600">Loading properties...</p>
-            </div>
-          ) : error ? (
-            <div className="py-12">
-              <p className="text-red-600">{error}</p>
-            </div>
-          ) : filteredProperties.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {filteredProperties.slice(0, 8).map((property) => (
-                <ListingCard
-                  key={property._id}
-                  property={property}
-                  onViewDetails={() => openModal(property)}
-                  onToggleFavorite={() => toggleFavorite(property)}
-                  isFavorited={isFavorited(property._id)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="py-12 bg-white rounded-lg shadow-md">
-              <svg className="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-gray-600 text-lg mb-4">No properties match your search</p>
+
+          {(searchQuery || categoryFilter !== "all" || typeFilter !== "all" || priceFilter !== "all") && (
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-sm text-gray-600">
+                Showing <span className="font-semibold">{filteredAndSortedProperties.length}</span> of {properties.length} properties
+              </p>
               <button
                 onClick={() => {
                   setSearchQuery("");
-                  setSelectedCategory("");
-                  setSelectedType("rent");
+                  setCategoryFilter("all");
+                  setTypeFilter("all");
+                  setPriceFilter("all");
+                  setSortBy("newest");
                 }}
-                className="px-6 py-3 bg-purple-700 text-white rounded-lg hover:bg-purple-600 shadow hover:shadow-lg transition font-semibold"
+                className="text-sm text-purple-700 hover:text-purple-800 font-semibold flex items-center"
               >
-                Clear Filters
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Clear All Filters
               </button>
             </div>
           )}
-          
-          <div className="mt-10">
-            <Link href="/listings">
-              <button className="px-6 py-3 rounded-md bg-purple-700 text-white hover:bg-purple-600 shadow hover:shadow-lg transition">
-                See all
-              </button>
-            </Link>
-          </div>
         </div>
       </section>
 
-      <section className="py-12 max-w-6xl mx-auto">
-        <div className="text-center mb-10">
-          <h2 className="text-3xl font-bold text-gray-900 mb-3">
-            Student <span className="text-purple-700">Hostels</span>
-          </h2>
-          <p className="text-gray-600 mb-6">Find comfortable and affordable hostel accommodation</p>
-          
-          <div className="inline-flex space-x-4">
-            <button
-              onClick={() => setHostelFilter("all")}
-              className={`px-6 py-2 rounded-md font-semibold transition ${
-                hostelFilter === "all"
-                  ? "bg-purple-700 text-white shadow-lg"
-                  : "border border-purple-700 text-purple-700 hover:bg-purple-50"
-              }`}
-            >
-              All Hostels
-            </button>
-            <button
-              onClick={() => setHostelFilter("male")}
-              className={`px-6 py-2 rounded-md font-semibold transition ${
-                hostelFilter === "male"
-                  ? "bg-blue-600 text-white shadow-lg"
-                  : "border border-blue-600 text-blue-600 hover:bg-blue-50"
-              }`}
-            >
-              <svg className="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              Male Hostels
-            </button>
-            <button
-              onClick={() => setHostelFilter("female")}
-              className={`px-6 py-2 rounded-md font-semibold transition ${
-                hostelFilter === "female"
-                  ? "bg-pink-600 text-white shadow-lg"
-                  : "border border-pink-600 text-pink-600 hover:bg-pink-50"
-              }`}
-            >
-              <svg className="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              Female Hostels
-            </button>
+      <section className="max-w-7xl mx-auto px-6 py-12">
+        {loading ? (
+          <div className="py-20 text-center">
+            <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-4 border-purple-700"></div>
+            <p className="mt-4 text-gray-600 text-lg">Loading properties...</p>
           </div>
-        </div>
-
-        {hostelsLoading ? (
-          <div className="py-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-700"></div>
-            <p className="mt-4 text-gray-600">Loading hostels...</p>
+        ) : error ? (
+          <div className="py-20 text-center">
+            <p className="text-red-600 text-lg">{error}</p>
           </div>
-        ) : hostelsError ? (
-          <div className="py-12 text-center">
-            <p className="text-red-600">{hostelsError}</p>
-          </div>
-        ) : filteredHostels.length > 0 ? (
+        ) : filteredAndSortedProperties.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {filteredHostels.slice(0, 8).map((hostel) => (
-              <HostelCard
-                key={hostel._id}
-                hostel={hostel}
-                onViewDetails={() => openModal(hostel)}
-                onToggleFavorite={() => toggleFavorite(hostel)}
-                isFavorited={isFavorited(hostel._id)}
+            {filteredAndSortedProperties.map((property) => (
+              <ListingCard
+                key={property._id}
+                property={property}
+                onViewDetails={() => openModal(property)}
+                onToggleFavorite={() => toggleFavorite(property)}
+                isFavorited={isFavorited(property._id)}
               />
             ))}
           </div>
         ) : (
-          <div className="py-12 text-center bg-white rounded-lg shadow-md">
-            <svg className="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          <div className="py-20 text-center bg-white rounded-lg shadow-md">
+            <svg className="w-24 h-24 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <p className="text-gray-600 text-lg">No {hostelFilter === "all" ? "" : hostelFilter} hostels available at the moment</p>
+            <h3 className="text-2xl font-semibold text-gray-900 mb-2">No Properties Found</h3>
+            <p className="text-gray-600 mb-6">Try adjusting your filters or search query</p>
+            <button
+              onClick={() => {
+                setSearchQuery("");
+                setCategoryFilter("all");
+                setTypeFilter("all");
+                setPriceFilter("all");
+              }}
+              className="px-6 py-3 bg-purple-700 text-white rounded-lg hover:bg-purple-600 shadow hover:shadow-lg transition font-semibold"
+            >
+              Clear Filters
+            </button>
           </div>
         )}
       </section>
 
-      <section className="py-12 max-w-6xl mx-auto">
-        <h2 className="text-center text-2xl font-semibold mb-8">
-          Discover towns and cities
-        </h2>
-        <div className="flex justify-center space-x-4 mb-8">
-          <button className="px-6 py-2 rounded-md bg-purple-700 text-white hover:bg-purple-600 shadow hover:shadow-lg transition">
-            For sale
-          </button>
-          <button className="px-6 py-2 rounded-md border border-purple-700 text-purple-700 hover:text-purple-800 hover:border-purple-800 transition">
-            To rent
-          </button>
+      <footer className="bg-purple-900 text-white py-12">
+        <div className="max-w-6xl mx-auto text-center mb-8">
+          <div className="font-bold text-xl mb-2">BashaChai.com</div>
+          <div>Find your dream home</div>
         </div>
-        <div className="flex justify-center space-x-20 flex-wrap">
+        <div className="max-w-6xl mx-auto flex flex-wrap justify-center gap-24 mb-8">
           <div>
-            <h3 className="text-lg font-semibold mb-3">In the city</h3>
-            <ul className="space-y-2 text-black">
-              <li>Live among the hustle and bustle</li>
-              <li>Properties for sale in New Market</li>
-              <li>Properties for sale in Mirpur 1</li>
+            <h4 className="font-semibold mb-3">Information</h4>
+            <ul className="space-y-2">
+              <li><Link href="/about" className="hover:underline">About Us</Link></li>
+              <li><Link href="/post-ad" className="hover:underline">How to Post Ad</Link></li>
+              <li><Link href="/boost-ad" className="hover:underline">How to Boost Ad</Link></li>
+              <li><Link href="/faq" className="hover:underline">FAQ</Link></li>
+              <li><Link href="/blog" className="hover:underline">Blog</Link></li>
             </ul>
           </div>
-          <div>
-            <h3 className="text-lg font-semibold mb-3">Rural and countryside</h3>
-            <ul className="space-y-2 text-black">
-              <li>Enjoy living close to nature</li>
-              <li>Properties for sale in Ranisankail</li>
-              <li>Properties for sale in Kamarkanda</li>
-            </ul>
-          </div>
-        </div>
-      </section>
 
-     
+          <div>
+            <h4 className="font-semibold mb-3">Legal and Policy</h4>
+            <ul className="space-y-2">
+              <li><Link href="/privacy-policy" className="hover:underline">Privacy Policy</Link></li>
+              <li><Link href="/terms" className="hover:underline">Terms of Use</Link></li>
+              <li><Link href="/cookies" className="hover:underline">Cookie Policy</Link></li>
+              <li><Link href="/listing-policy" className="hover:underline">Listing Policy</Link></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-semibold mb-3">Contact</h4>
+            <ul className="space-y-2">
+              <li>+880 177554 9500</li>
+              <li>support@bashachai.com</li>
+              <li>Office: Flat 4, House #10A, Road #3/A, Dhaka</li>
+            </ul>
+          </div>
+        </div>
+        <div className="text-center text-gray-300">© 2025 BashaChai. All rights reserved.</div>
+      </footer>
 
       {isModalOpen && selectedProperty && (
         <PropertyModal property={selectedProperty} onClose={closeModal} />
@@ -530,20 +402,8 @@ export default function HomePage() {
   );
 }
 
-function CategoryCard({ img, title, count }) {
-  return (
-    <div className="w-48 rounded-xl shadow-md bg-white overflow-hidden hover:shadow-xl transform hover:-translate-y-2 transition duration-300 cursor-pointer">
-      <img src={img} alt={title} className="w-full h-28 object-cover rounded-t-xl" />
-      <div className="p-4 text-black">
-        <div className="font-semibold text-lg">{title}</div>
-        <div>{count} Listings</div>
-      </div>
-    </div>
-  );
-}
-
 function ListingCard({ property, onViewDetails, onToggleFavorite, isFavorited }) {
-  const { title, location, price, beds, baths, image, images, _id } = property;
+  const { title, location, price, beds, baths, image, images, category } = property;
   const fallbackImage = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80";
   
   const displayImage = (images && images.length > 0) ? images[0] : (image || fallbackImage);
@@ -569,67 +429,11 @@ function ListingCard({ property, onViewDetails, onToggleFavorite, isFavorited })
         )}
       </button>
 
-      <div className="relative">
-        <img src={displayImage} alt={title} className="w-full h-32 object-cover rounded-xl mb-3" />
-        {images && images.length > 1 && (
-          <div className="absolute bottom-5 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded-full flex items-center">
-            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            {images.length}
-          </div>
-        )}
-      </div>
-
-      <div className="text-black font-semibold text-lg">{title}</div>
-      <div className="text-black text-sm mt-1">{location}</div>
-      <div className="text-black text-sm mt-1">
-        {beds > 0 && `${beds} Beds`} {beds > 0 && baths > 0 && " • "} {baths > 0 && `${baths} Baths`}
-      </div>
-      <div className="text-black font-bold mt-2">{price}</div>
-      <button
-        onClick={onViewDetails}
-        className="mt-4 px-4 py-2 rounded-md bg-purple-700 text-white hover:bg-purple-600 shadow hover:shadow-lg transition w-full"
-      >
-        View Details
-      </button>
-    </div>
-  );
-}
-
-function HostelCard({ hostel, onViewDetails, onToggleFavorite, isFavorited }) {
-  const { title, location, price, beds, baths, image, images, _id, category } = hostel;
-  const fallbackImage = "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80";
-  
-  const displayImage = (images && images.length > 0) ? images[0] : (image || fallbackImage);
-  const isMale = category === "Male Student Hostel";
-  
-  return (
-    <div className="rounded-xl shadow-md bg-white overflow-hidden hover:shadow-xl transform hover:-translate-y-2 transition duration-300 p-4 flex flex-col relative">
-      <div className={`absolute top-6 left-6 z-10 px-3 py-1 rounded-full text-xs font-bold ${
-        isMale ? 'bg-blue-500 text-white' : 'bg-pink-500 text-white'
-      }`}>
-        {isMale ? '♂ Male' : '♀ Female'}
-      </div>
-
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleFavorite();
-        }}
-        className="absolute top-6 right-6 z-10 bg-white rounded-full p-2 shadow-lg hover:scale-110 transition-transform"
-        aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
-      >
-        {isFavorited ? (
-          <svg className="w-6 h-6 text-red-500 fill-current" viewBox="0 0 24 24">
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-          </svg>
-        ) : (
-          <svg className="w-6 h-6 text-gray-400 hover:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-          </svg>
-        )}
-      </button>
+      {category && (
+        <div className="absolute top-6 left-6 z-10 px-3 py-1 rounded-full text-xs font-bold bg-purple-600 text-white">
+          {category}
+        </div>
+      )}
 
       <div className="relative mt-8">
         <img src={displayImage} alt={title} className="w-full h-32 object-cover rounded-xl mb-3" />
@@ -808,13 +612,13 @@ function PropertyModal({ property, onClose }) {
 
           {propertyImages.length > 1 && (
             <>
-              <button onClick={previousImage} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-900 p-3 rounded-full shadow-lg transition-all hover:scale-110" aria-label="Previous image">
+              <button onClick={previousImage} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-900 p-3 rounded-full shadow-lg transition-all hover:scale-110">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
 
-              <button onClick={nextImage} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-900 p-3 rounded-full shadow-lg transition-all hover:scale-110" aria-label="Next image">
+              <button onClick={nextImage} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-900 p-3 rounded-full shadow-lg transition-all hover:scale-110">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
@@ -830,7 +634,6 @@ function PropertyModal({ property, onClose }) {
                     key={index}
                     onClick={() => goToImage(index)}
                     className={`transition-all ${index === currentImageIndex ? 'w-8 h-3 bg-white' : 'w-3 h-3 bg-white bg-opacity-50 hover:bg-opacity-75'} rounded-full`}
-                    aria-label={`Go to image ${index + 1}`}
                   />
                 ))}
               </div>
