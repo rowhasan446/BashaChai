@@ -39,22 +39,18 @@ export default function HomePage() {
   const [error, setError] = useState(null);
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
   const [favorites, setFavorites] = useState([]);
   const dropdownRef = useRef(null);
 
-  // ✅ NEW: Search and Filter States
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState("rent");
   const [selectedCategory, setSelectedCategory] = useState("");
 
-  // ✅ NEW: Student Hostel States
   const [hostels, setHostels] = useState([]);
-  const [hostelFilter, setHostelFilter] = useState("all"); // "all", "male", "female"
+  const [hostelFilter, setHostelFilter] = useState("all");
   const [hostelsLoading, setHostelsLoading] = useState(true);
   const [hostelsError, setHostelsError] = useState(null);
 
-  // Load favorites from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -71,7 +67,6 @@ export default function HomePage() {
     }
   }, []);
 
-  // Check if user is logged in on component mount
   useEffect(() => {
     const userToken = localStorage.getItem('userToken');
     if (userToken) {
@@ -79,15 +74,15 @@ export default function HomePage() {
     }
   }, []);
 
-  // Fetch properties from backend
   useEffect(() => {
     async function fetchProperties() {
       try {
         setLoading(true);
-        const response = await fetch('/api/properties?limit=8');
+        const response = await fetch('/api/properties');
         const result = await response.json();
 
         if (result.success) {
+          console.log('✅ Fetched properties:', result.data.length);
           setProperties(result.data);
         } else {
           setError(result.message || 'Failed to load properties');
@@ -103,7 +98,6 @@ export default function HomePage() {
     fetchProperties();
   }, []);
 
-  // ✅ NEW: Fetch Student Hostels
   useEffect(() => {
     async function fetchHostels() {
       try {
@@ -112,7 +106,6 @@ export default function HomePage() {
         const result = await response.json();
 
         if (result.success) {
-          // Filter only hostel properties
           const hostelProperties = result.data.filter(
             prop => prop.category === "Male Student Hostel" || prop.category === "Female Student Hostel"
           );
@@ -132,7 +125,6 @@ export default function HomePage() {
     fetchHostels();
   }, []);
 
-  // ✅ NEW: Filter hostels based on selected filter
   const filteredHostels = hostels.filter(hostel => {
     if (hostelFilter === "all") return true;
     if (hostelFilter === "male") return hostel.category === "Male Student Hostel";
@@ -140,19 +132,19 @@ export default function HomePage() {
     return true;
   });
 
-  // ✅ NEW: Filter properties based on search and filters
   const filteredProperties = properties.filter((property) => {
-    // Search filter
+    if (searchQuery === "" && selectedCategory === "") {
+      return true;
+    }
+
     const matchesSearch = 
       searchQuery === "" ||
       property.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       property.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       property.description?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    // Type filter (rent/sale)
     const matchesType = property.type === selectedType;
 
-    // Category filter
     const matchesCategory = 
       selectedCategory === "" || 
       property.category === selectedCategory;
@@ -160,7 +152,6 @@ export default function HomePage() {
     return matchesSearch && matchesType && matchesCategory;
   });
 
-  // Close modal when clicking outside
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape') {
@@ -179,8 +170,6 @@ export default function HomePage() {
     };
   }, [isModalOpen]);
 
-  // Close profile dropdown when clicking outside
- 
   function prevSlide() {
     setSlideIndex((slideIndex - 1 + sliderImages.length) % sliderImages.length);
   }
@@ -188,9 +177,6 @@ export default function HomePage() {
   function nextSlide() {
     setSlideIndex((slideIndex + 1) % sliderImages.length);
   }
-
-  
-  
 
   const openModal = (property) => {
     setSelectedProperty(property);
@@ -202,8 +188,6 @@ export default function HomePage() {
     setTimeout(() => setSelectedProperty(null), 300);
   };
 
-  
-  // Toggle favorite function
   const toggleFavorite = (property) => {
     if (!authUser) {
       alert('Please sign in to add favorites!');
@@ -214,20 +198,16 @@ export default function HomePage() {
     setFavorites((prevFavorites) => {
       let updatedFavorites;
       
-      // Check if property already in favorites
       const existingIndex = prevFavorites.findIndex(fav => fav._id === property._id);
       
       if (existingIndex !== -1) {
-        // Remove from favorites
         updatedFavorites = prevFavorites.filter(fav => fav._id !== property._id);
         console.log('❌ Removed from favorites:', property.title);
       } else {
-        // Add to favorites
         updatedFavorites = [...prevFavorites, property];
         console.log('✅ Added to favorites:', property.title);
       }
 
-      // Save to localStorage
       if (typeof window !== 'undefined') {
         try {
           localStorage.setItem('favorites', JSON.stringify(updatedFavorites));
@@ -241,23 +221,17 @@ export default function HomePage() {
     });
   };
 
-  // Check if property is favorited
   const isFavorited = (propertyId) => {
     return favorites.some(fav => fav._id === propertyId);
   };
 
-  // ✅ NEW: Handle search form submission
   const handleSearch = (e) => {
     e.preventDefault();
     console.log('🔍 Searching:', { searchQuery, selectedType, selectedCategory });
-    // The filtering happens automatically through filteredProperties
   };
 
   return (
     <main className="font-sans bg-gray-50 text-black">
-      {/* Navbar */}
-    
-      {/* Slider Banner */}
       <section className="relative max-w-6xl mx-auto mt-8 rounded-lg overflow-hidden shadow-lg">
         <img
           src={sliderImages[slideIndex]}
@@ -293,7 +267,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ✅ UPDATED: Main Heading & Search with Functional Filters */}
       <section className="text-center mt-10 px-4 sm:px-0 max-w-6xl mx-auto">
         <h1 className="text-3xl font-semibold mb-6">
           A great platform to sell and rent your <span className="text-purple-700">Properties.</span>
@@ -349,7 +322,6 @@ export default function HomePage() {
           </button>
         </form>
 
-        {/* ✅ NEW: Active Filter Indicator */}
         {(searchQuery || selectedCategory) && (
           <div className="mt-4 inline-flex items-center gap-3 bg-purple-50 border border-purple-200 rounded-lg px-4 py-2">
             <p className="text-sm text-purple-900">
@@ -372,10 +344,8 @@ export default function HomePage() {
         )}
       </section>
 
-   
       
 
-      {/* ✅ UPDATED: Top Picks with Filtered Results */}
       <section className="bg-gray-100 py-12">
         <div className="max-w-6xl mx-auto text-center">
           <div className="inline-flex space-x-4 mb-6">
@@ -402,7 +372,7 @@ export default function HomePage() {
             </div>
           ) : filteredProperties.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {filteredProperties.map((property) => (
+              {filteredProperties.slice(0, 8).map((property) => (
                 <ListingCard
                   key={property._id}
                   property={property}
@@ -441,7 +411,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ✅ Student Hostels Section */}
       <section className="py-12 max-w-6xl mx-auto">
         <div className="text-center mb-10">
           <h2 className="text-3xl font-bold text-gray-900 mb-3">
@@ -449,7 +418,6 @@ export default function HomePage() {
           </h2>
           <p className="text-gray-600 mb-6">Find comfortable and affordable hostel accommodation</p>
           
-          {/* Gender Filter Buttons */}
           <div className="inline-flex space-x-4">
             <button
               onClick={() => setHostelFilter("all")}
@@ -490,7 +458,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Hostels Display */}
         {hostelsLoading ? (
           <div className="py-12 text-center">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-700"></div>
@@ -522,7 +489,6 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* Discover Cities */}
       <section className="py-12 max-w-6xl mx-auto">
         <h2 className="text-center text-2xl font-semibold mb-8">
           Discover towns and cities
@@ -555,9 +521,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
-   
-      {/* Property Details Modal */}
+     
+
       {isModalOpen && selectedProperty && (
         <PropertyModal property={selectedProperty} onClose={closeModal} />
       )}
@@ -581,7 +546,6 @@ function ListingCard({ property, onViewDetails, onToggleFavorite, isFavorited })
   const { title, location, price, beds, baths, image, images, _id } = property;
   const fallbackImage = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80";
   
-  // Use first image from images array, fallback to single image or default
   const displayImage = (images && images.length > 0) ? images[0] : (image || fallbackImage);
   
   return (
@@ -633,7 +597,6 @@ function ListingCard({ property, onViewDetails, onToggleFavorite, isFavorited })
   );
 }
 
-// ✅ Hostel Card Component
 function HostelCard({ hostel, onViewDetails, onToggleFavorite, isFavorited }) {
   const { title, location, price, beds, baths, image, images, _id, category } = hostel;
   const fallbackImage = "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80";
@@ -643,7 +606,6 @@ function HostelCard({ hostel, onViewDetails, onToggleFavorite, isFavorited }) {
   
   return (
     <div className="rounded-xl shadow-md bg-white overflow-hidden hover:shadow-xl transform hover:-translate-y-2 transition duration-300 p-4 flex flex-col relative">
-      {/* Gender Badge */}
       <div className={`absolute top-6 left-6 z-10 px-3 py-1 rounded-full text-xs font-bold ${
         isMale ? 'bg-blue-500 text-white' : 'bg-pink-500 text-white'
       }`}>
@@ -704,38 +666,108 @@ function HostelCard({ hostel, onViewDetails, onToggleFavorite, isFavorited }) {
 }
 
 function PropertyModal({ property, onClose }) {
+  const { user: authUser } = useContext(AuthContext);
   const fallbackImage = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80";
   
-  // Get images array - support both new 'images' array and old single 'image' field
   const propertyImages = property.images && property.images.length > 0 
     ? property.images 
     : property.image 
       ? [property.image] 
       : [fallbackImage];
 
-  // State for image carousel (ONLY DECLARE ONCE)
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
 
-  // Navigate to previous image
+  useEffect(() => {
+    async function fetchReviews() {
+      try {
+        setReviewsLoading(true);
+        const response = await fetch(`/api/reviews?propertyId=${property._id}`);
+        const result = await response.json();
+        
+        if (result.success) {
+          setReviews(result.data);
+        }
+      } catch (error) {
+        console.error('Error fetching reviews:', error);
+      } finally {
+        setReviewsLoading(false);
+      }
+    }
+
+    if (property._id) {
+      fetchReviews();
+    }
+  }, [property._id]);
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    
+    if (!authUser) {
+      alert('Please sign in to submit a review');
+      return;
+    }
+
+    if (!comment.trim()) {
+      alert('Please write a comment');
+      return;
+    }
+
+    try {
+      setSubmittingReview(true);
+      
+      const response = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          propertyId: property._id,
+          rating,
+          comment: comment.trim(),
+          userName: authUser.displayName || authUser.email.split('@')[0],
+          userEmail: authUser.email
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setReviews(prev => [result.data, ...prev]);
+        setComment("");
+        setRating(5);
+        alert('Review submitted successfully! ⭐');
+      } else {
+        alert('Failed to submit review: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      alert('Failed to submit review');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const averageRating = reviews.length > 0
+    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+    : 0;
+
   const previousImage = () => {
-    setCurrentImageIndex((prev) => 
-      prev === 0 ? propertyImages.length - 1 : prev - 1
-    );
+    setCurrentImageIndex((prev) => prev === 0 ? propertyImages.length - 1 : prev - 1);
   };
 
-  // Navigate to next image
   const nextImage = () => {
-    setCurrentImageIndex((prev) => 
-      prev === propertyImages.length - 1 ? 0 : prev + 1
-    );
+    setCurrentImageIndex((prev) => prev === propertyImages.length - 1 ? 0 : prev + 1);
   };
 
-  // Go to specific image
   const goToImage = (index) => {
     setCurrentImageIndex(index);
   };
 
-  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'ArrowLeft') previousImage();
@@ -755,7 +787,6 @@ function PropertyModal({ property, onClose }) {
         className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center z-10">
           <h2 className="text-2xl font-bold text-gray-900">Property Details</h2>
           <button
@@ -768,54 +799,37 @@ function PropertyModal({ property, onClose }) {
           </button>
         </div>
 
-        {/* Image Carousel */}
         <div className="relative w-full h-80 overflow-hidden bg-gray-900">
-          {/* Current Image */}
           <img
             src={propertyImages[currentImageIndex]}
             alt={`${property.title} - Image ${currentImageIndex + 1}`}
             className="w-full h-full object-contain transition-opacity duration-300"
           />
 
-          {/* Navigation Buttons - Only show if multiple images */}
           {propertyImages.length > 1 && (
             <>
-              <button
-                onClick={previousImage}
-                className="absolute left-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-900 p-3 rounded-full shadow-lg transition-all hover:scale-110"
-                aria-label="Previous image"
-              >
+              <button onClick={previousImage} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-900 p-3 rounded-full shadow-lg transition-all hover:scale-110" aria-label="Previous image">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
 
-              <button
-                onClick={nextImage}
-                className="absolute right-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-900 p-3 rounded-full shadow-lg transition-all hover:scale-110"
-                aria-label="Next image"
-              >
+              <button onClick={nextImage} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-900 p-3 rounded-full shadow-lg transition-all hover:scale-110" aria-label="Next image">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
 
-              {/* Image Counter */}
               <div className="absolute top-4 right-4 bg-black bg-opacity-70 text-white px-3 py-1 rounded-full text-sm font-semibold">
                 {currentImageIndex + 1} / {propertyImages.length}
               </div>
 
-              {/* Dot Indicators */}
               <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2">
                 {propertyImages.map((_, index) => (
                   <button
                     key={index}
                     onClick={() => goToImage(index)}
-                    className={`transition-all ${
-                      index === currentImageIndex
-                        ? 'w-8 h-3 bg-white'
-                        : 'w-3 h-3 bg-white bg-opacity-50 hover:bg-opacity-75'
-                    } rounded-full`}
+                    className={`transition-all ${index === currentImageIndex ? 'w-8 h-3 bg-white' : 'w-3 h-3 bg-white bg-opacity-50 hover:bg-opacity-75'} rounded-full`}
                     aria-label={`Go to image ${index + 1}`}
                   />
                 ))}
@@ -824,7 +838,6 @@ function PropertyModal({ property, onClose }) {
           )}
         </div>
 
-        {/* Thumbnail Gallery - Only show if multiple images */}
         {propertyImages.length > 1 && (
           <div className="px-6 pt-4 pb-2">
             <div className="flex gap-2 overflow-x-auto pb-2">
@@ -832,32 +845,21 @@ function PropertyModal({ property, onClose }) {
                 <button
                   key={index}
                   onClick={() => goToImage(index)}
-                  className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
-                    index === currentImageIndex
-                      ? 'border-purple-700 ring-2 ring-purple-300'
-                      : 'border-gray-300 hover:border-purple-400'
-                  }`}
+                  className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${index === currentImageIndex ? 'border-purple-700 ring-2 ring-purple-300' : 'border-gray-300 hover:border-purple-400'}`}
                 >
-                  <img
-                    src={img}
-                    alt={`Thumbnail ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {/* Property Details */}
         <div className="p-6 space-y-6">
           <div className="border-b border-gray-200 pb-4">
             <h3 className="text-3xl font-bold text-gray-900 mb-2">{property.title}</h3>
             <div className="flex items-center justify-between">
               <p className="text-2xl font-bold text-purple-700">{property.price}</p>
-              <span className={`px-4 py-1 rounded-full text-sm font-semibold ${
-                property.type === 'rent' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
-              }`}>
+              <span className={`px-4 py-1 rounded-full text-sm font-semibold ${property.type === 'rent' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
                 For {property.type === 'rent' ? 'Rent' : 'Sale'}
               </span>
             </div>
@@ -938,6 +940,131 @@ function PropertyModal({ property, onClose }) {
                   }) : 'N/A'}
                 </p>
               </div>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-200 pt-6">
+            <div className="flex items-center justify-between mb-6">
+              <h4 className="text-2xl font-bold text-gray-900 flex items-center">
+                <svg className="w-7 h-7 mr-2 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+                Reviews & Ratings
+              </h4>
+              {reviews.length > 0 && (
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-yellow-500">{averageRating}</div>
+                  <div className="text-sm text-gray-500">{reviews.length} review{reviews.length !== 1 ? 's' : ''}</div>
+                </div>
+              )}
+            </div>
+
+            {authUser ? (
+              <form onSubmit={handleSubmitReview} className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-6 mb-6 border border-purple-200">
+                <h5 className="text-lg font-semibold text-gray-900 mb-4">Write a Review</h5>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Your Rating</label>
+                  <div className="flex items-center space-x-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setRating(star)}
+                        className="focus:outline-none transition-transform hover:scale-110"
+                      >
+                        <svg
+                          className={`w-10 h-10 ${star <= rating ? 'text-yellow-500 fill-current' : 'text-gray-300'}`}
+                          viewBox="0 0 20 20"
+                        >
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                      </button>
+                    ))}
+                    <span className="ml-3 text-lg font-semibold text-gray-700">{rating} / 5</span>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Your Comment</label>
+                  <textarea
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    rows="4"
+                    required
+                    placeholder="Share your experience with this property..."
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-700 focus:outline-none"
+                  ></textarea>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submittingReview}
+                  className={`w-full py-3 rounded-lg font-semibold transition ${
+                    submittingReview
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-purple-700 text-white hover:bg-purple-600 shadow-lg hover:shadow-xl'
+                  }`}
+                >
+                  {submittingReview ? 'Submitting...' : 'Submit Review'}
+                </button>
+              </form>
+            ) : (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 text-center">
+                <p className="text-yellow-800 font-semibold">Please sign in to write a review</p>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {reviewsLoading ? (
+                <div className="text-center py-8">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-700"></div>
+                  <p className="mt-2 text-gray-600">Loading reviews...</p>
+                </div>
+              ) : reviews.length > 0 ? (
+                reviews.map((review) => (
+                  <div key={review._id} className="bg-gray-50 rounded-lg p-5 border border-gray-200">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-lg">
+                          {review.userName.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="ml-3">
+                          <p className="font-semibold text-gray-900">{review.userName}</p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(review.createdAt).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        {[...Array(5)].map((_, i) => (
+                          <svg
+                            key={i}
+                            className={`w-5 h-5 ${i < review.rating ? 'text-yellow-500 fill-current' : 'text-gray-300'}`}
+                            viewBox="0 0 20 20"
+                          >
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                        ))}
+                        <span className="ml-2 font-semibold text-gray-700">{review.rating}.0</span>
+                      </div>
+                    </div>
+                    <p className="text-gray-700 leading-relaxed">{review.comment}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                  <svg className="w-16 h-16 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                  </svg>
+                  <p className="text-gray-600 font-semibold">No reviews yet</p>
+                  <p className="text-gray-500 text-sm mt-1">Be the first to review this property!</p>
+                </div>
+              )}
             </div>
           </div>
 
